@@ -1,0 +1,95 @@
+# ============================================================================
+# AJE Mother Card — Autonomous Open-Source Maintainer
+# ============================================================================
+# Product:   Public GitHub repository / open-source library or tool
+# Adapter:   OllamaAdapter (gemma3:27b) — fully local, no data leaves machine
+#
+# Usage:
+#   from src.adapters import OllamaAdapter
+#   from src.daemon import AutonomousJobCardEngine
+#
+#   adapter = OllamaAdapter(workspace_root=".", model="gemma3:27b")
+#   engine  = AutonomousJobCardEngine(workspace_root=".", adapter=adapter)
+#   engine.run_one_cycle(".jobs/mother_card.yaml")
+#
+# Prerequisites:
+#   ollama pull gemma3:27b
+#   pip install ollama
+# ============================================================================
+
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-opensource-maintainer
+  name: Autonomous Open-Source Maintainer
+
+spec:
+  # --------------------------------------------------------------------------
+  # Core philosophy — injected into every LLM prompt as a system instruction
+  # --------------------------------------------------------------------------
+  core_philosophy: |
+    This is a public open-source project — every contribution must meet the
+    highest standards of clarity, backward compatibility, and documentation.
+    Follow semantic versioning (SemVer 2.0) strictly. Never break a public API
+    without a deprecation cycle and a CHANGELOG entry. Every new feature and
+    bug fix must include unit tests. Target 85%+ code coverage at all times.
+    Write docstrings for every public function and class. Keep the README and
+    CHANGELOG up-to-date after every task. Prefer stdlib solutions over new
+    dependencies. If a dependency is unavoidable, pin its version and justify
+    it in the PR description. Code must be readable by a newcomer contributor
+    — prefer clarity over cleverness.
+
+  # --------------------------------------------------------------------------
+  # Design system — ALL generated UI/CLI output must follow Google Material 3
+  # For CLI tools, apply Material's colour and typography tokens wherever
+  # terminal output, web dashboards, or documentation sites are generated.
+  # Change to "IBM Carbon Design System" or "Apple Human Interface Guidelines"
+  # as needed.
+  # --------------------------------------------------------------------------
+  design_system: "Google Material Design 3"
+
+  # --------------------------------------------------------------------------
+  # Safety policies
+  # --------------------------------------------------------------------------
+  safety_policies:
+    # cloud = open-source code is public, safe to use best cloud model.
+    # Switch to "local" if your repo contains unreleased proprietary logic.
+    privacy_mode: cloud
+
+    restricted_paths:
+      - "**/secrets*"
+      - "**/.env*"
+      - "**/certs/*"
+      - "**/.github/workflows/deploy*"  # deployment workflows need human review
+
+    banned_commands:
+      - "rm -rf"
+      - "git push --force"              # protect main / release branches
+      - "git tag -d"                    # never silently delete a release tag
+      - "npm publish"                   # publishing requires human sign-off
+      - "pip install --index-url"       # prevent supply-chain attacks
+
+    max_budget_usd: 10.00
+
+  # --------------------------------------------------------------------------
+  # Global context — passed to every child card prompt
+  # --------------------------------------------------------------------------
+  global_context:
+    target_language: Python
+    testing_framework: pytest
+    python_version: "3.11"
+    changelog_file: CHANGELOG.md
+    versioning_standard: SemVer_2.0
+    license: Apache-2.0
+    ci_pipeline: GitHub Actions
+    coverage_threshold: 85
+    documentation_style: Google  # Google-style docstrings
+    pr_template: .github/pull_request_template.md
+
+status:
+  family_health: Healthy
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

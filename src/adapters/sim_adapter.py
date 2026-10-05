@@ -22,7 +22,10 @@ class SimAdapter(BaseLLMAdapter):
         deliverables: List[Dict[str, str]],
         iteration: int,
         previous_errors: str = "",
+        design_system: str = "",
     ) -> Dict[str, Any]:
+        # SimLLM is a deterministic stub and does not use design_system,
+        # but we accept the param to satisfy the BaseLLMAdapter interface.
         return self._sim.execute_child_card(
             tactical_objective=tactical_objective,
             deliverables=deliverables,

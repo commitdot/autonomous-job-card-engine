@@ -69,6 +69,8 @@ class AutonomousJobCardEngine:
         # 1. Load Mother Card Configuration
         mother = MotherCard.from_yaml(mother_card_path)
         print(f"[INFO] Mother Guardian Loaded: {mother.name} (Privacy: {mother.privacy_mode})")
+        if mother.design_system:
+            print(f"[INFO] Design System Enforced: {mother.design_system}")
 
         # Set up safety elements derived from Mother spec
         self.privacy_guard = PrivacyGuard(restricted_paths=mother.restricted_paths)
@@ -124,7 +126,8 @@ class AutonomousJobCardEngine:
                     result = self.llm.execute_child_card(
                         tactical_objective=child.tactical_objective,
                         deliverables=child.deliverables,
-                        iteration=2 # Direct healed result
+                        iteration=2,  # Direct healed result
+                        design_system=mother.design_system,
                     )
                     
                     self.write_audit_log(
@@ -190,6 +193,7 @@ class AutonomousJobCardEngine:
                             deliverables=child.deliverables,
                             iteration=child.current_iteration,
                             previous_errors=previous_errors,
+                            design_system=mother.design_system,
                         )
 
                         # Record written files to audit

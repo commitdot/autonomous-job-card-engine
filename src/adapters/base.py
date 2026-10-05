@@ -18,6 +18,7 @@ class BaseLLMAdapter(ABC):
         deliverables: List[Dict[str, str]],
         iteration: int,
         previous_errors: str = "",
+        design_system: str = "",
     ) -> Dict[str, Any]:
         """
         Ask the LLM to fulfil a ChildCard's tactical objective.
@@ -28,6 +29,9 @@ class BaseLLMAdapter(ABC):
             iteration:           Current self-healing iteration number (1-based).
             previous_errors:     Stdout/stderr from the last failed validation run,
                                  injected into the prompt so the model can self-heal.
+            design_system:       Design system name from the MotherCard (e.g.
+                                 "IBM Carbon Design System"). Injected as a MANDATORY
+                                 compliance block in every prompt when non-empty.
 
         Returns:
             {

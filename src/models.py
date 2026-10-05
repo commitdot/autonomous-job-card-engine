@@ -12,7 +12,13 @@ class MotherCard:
     restricted_paths: List[str] = field(default_factory=list)
     banned_commands: List[str] = field(default_factory=list)
     global_context: Dict[str, Any] = field(default_factory=dict)
-    
+
+    # Design system every child card must comply with.
+    # Examples: "IBM Carbon Design System", "Google Material Design 3",
+    #           "Apple Human Interface Guidelines", "Microsoft Fluent 2"
+    # Leave empty string to disable design enforcement.
+    design_system: str = ""
+
     # Live engine status
     family_health: str = "Healthy"
     total_spend_usd: float = 0.0
@@ -35,6 +41,7 @@ class MotherCard:
             restricted_paths=spec.get("safety_policies", {}).get("restricted_paths", []),
             banned_commands=spec.get("safety_policies", {}).get("banned_commands", []),
             global_context=spec.get("global_context", {}),
+            design_system=spec.get("design_system", ""),
             family_health=status.get("family_health", "Healthy"),
             total_spend_usd=status.get("total_spend_usd", 0.0),
             active_children=status.get("active_children", []),
@@ -52,6 +59,7 @@ class MotherCard:
             },
             "spec": {
                 "core_philosophy": self.core_philosophy,
+                "design_system": self.design_system,
                 "safety_policies": {
                     "privacy_mode": self.privacy_mode,
                     "restricted_paths": self.restricted_paths,

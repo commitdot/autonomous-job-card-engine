@@ -1,22 +1,26 @@
 """
-WatsonxAdapter
-==============
-A production-ready LLM adapter that connects the Autonomous Job-Card Engine
-to IBM watsonx.ai using the `ibm-watsonx-ai` SDK.
+OllamaAdapter
+=============
+Connects the Autonomous Job-Card Engine to a locally-running Ollama instance.
 
-Required environment variables
---------------------------------
-WATSONX_API_KEY      — IBM Cloud API key (IAM)
-WATSONX_PROJECT_ID   — watsonx.ai project UUID
-WATSONX_URL          — Regional endpoint, e.g. https://us-south.ml.cloud.ibm.com
+Default model: gemma3:27b  (Google Gemma 3 — latest public release on Ollama)
+               gemma3:12b  (lighter, still excellent for coding tasks)
+
+Install Ollama:   https://ollama.com/download
+Pull the model:   ollama pull gemma3:27b
+
+Install SDK:      pip install ollama
 
 Optional environment variables
 --------------------------------
-WATSONX_MODEL_ID     — Foundation model to use (default: ibm/granite-34b-code-instruct)
+OLLAMA_MODEL  — model tag to use    (default: gemma3:27b)
+OLLAMA_HOST   — Ollama base URL     (default: http://localhost:11434)
 
-Installation
---------------------------------
-pip install ibm-watsonx-ai
+Note on Gemma versions in Ollama
+---------------------------------
+As of 2025, Ollama ships Gemma 3 as the "gemma3" family — Google's latest
+publicly available release. Use `ollama list` to see locally available models,
+or `ollama pull gemma3:27b` to fetch the 27B parameter variant.
 """
 
 import os
@@ -28,79 +32,46 @@ from typing import Dict, Any, List
 
 from .base import BaseLLMAdapter
 
-# ---------------------------------------------------------------------------
-# Lazy import so the rest of AJE still works without the SDK installed
-# ---------------------------------------------------------------------------
 try:
-    from ibm_watsonx_ai import Credentials
-    from ibm_watsonx_ai.foundation_models import ModelInference
-    from ibm_watsonx_ai.metanames import GenTextParamsMetaNames as GenParams
-    _WATSONX_AVAILABLE = True
+    import ollama as _ollama
+    _OLLAMA_AVAILABLE = True
 except ImportError:
-    _WATSONX_AVAILABLE = False
+    _OLLAMA_AVAILABLE = False
 
 
-# Default model — IBM Granite 34B Code Instruct is optimised for code generation,
-# instruction-following, and agentic code-editing tasks.
-DEFAULT_MODEL = "ibm/granite-34b-code-instruct"
-
-# Maximum tokens to generate per LLM call
-MAX_NEW_TOKENS = 2048
+DEFAULT_MODEL = "gemma3:27b"
 
 
-class WatsonxAdapter(BaseLLMAdapter):
+class OllamaAdapter(BaseLLMAdapter):
     """
-    Production LLM adapter backed by IBM watsonx.ai.
+    Production LLM adapter backed by a local Ollama endpoint.
 
     Responsibilities
     ----------------
     * Builds structured, self-healing prompts from ChildCard fields.
-    * Calls the watsonx.ai ModelInference API.
-    * Parses the response to extract file contents and writes them to disk.
-    * Sends a real repo file-tree to gap analysis so the model recommends
-      context-aware successor tasks — not a hardcoded list.
+    * Injects design-system rules (IBM Carbon, Apple HIG, Google Material, etc.)
+      into every code-generation prompt when specified in the MotherCard.
+    * Calls the Ollama generate API and parses file content from the response.
+    * Writes deliverable files to disk inside workspace_root.
+    * Sends a real repo file-tree to gap analysis for context-aware successor tasks.
     """
 
     def __init__(
         self,
         workspace_root: str,
-        api_key: str = None,
-        project_id: str = None,
-        url: str = None,
-        model_id: str = None,
+        model: str = None,
+        host: str = None,
     ):
-        if not _WATSONX_AVAILABLE:
+        if not _OLLAMA_AVAILABLE:
             raise ImportError(
-                "ibm-watsonx-ai is not installed. Run: pip install ibm-watsonx-ai"
+                "ollama package is not installed. Run: pip install ollama"
             )
 
         self.workspace_root = workspace_root
-        self.model_id = model_id or os.getenv("WATSONX_MODEL_ID", DEFAULT_MODEL)
+        self.model = model or os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
+        self.host  = host  or os.getenv("OLLAMA_HOST",  "http://localhost:11434")
 
-        # Resolve credentials — constructor args take priority over env vars
-        resolved_api_key = api_key or os.getenv("WATSONX_API_KEY")
-        resolved_project_id = project_id or os.getenv("WATSONX_PROJECT_ID")
-        resolved_url = url or os.getenv("WATSONX_URL", "https://us-south.ml.cloud.ibm.com")
-
-        if not resolved_api_key:
-            raise ValueError("WATSONX_API_KEY is required. Set it as an env var or pass api_key=.")
-        if not resolved_project_id:
-            raise ValueError("WATSONX_PROJECT_ID is required. Set it as an env var or pass project_id=.")
-
-        credentials = Credentials(url=resolved_url, api_key=resolved_api_key)
-
-        self._model = ModelInference(
-            model_id=self.model_id,
-            credentials=credentials,
-            project_id=resolved_project_id,
-            params={
-                GenParams.MAX_NEW_TOKENS: MAX_NEW_TOKENS,
-                GenParams.TEMPERATURE: 0.2,      # Low temperature = deterministic code
-                GenParams.REPETITION_PENALTY: 1.1,
-            },
-        )
-
-        print(f"[WATSONX] Adapter initialised — model: {self.model_id}")
+        print(f"[OLLAMA] Adapter initialised — model: {self.model} @ {self.host}")
 
     # ------------------------------------------------------------------
     # Public interface (implements BaseLLMAdapter)
@@ -115,18 +86,18 @@ class WatsonxAdapter(BaseLLMAdapter):
         design_system: str = "",
     ) -> Dict[str, Any]:
         """
-        Calls watsonx.ai to generate or self-heal code for each deliverable,
+        Calls Ollama (Gemma 3) to generate or self-heal code for each deliverable,
         then writes the results to disk inside workspace_root.
         """
         logs: List[str] = []
         created_files: List[str] = []
 
         for deliv in deliverables:
-            rel_path = deliv.get("path", "")
+            rel_path    = deliv.get("path", "")
             description = deliv.get("description", "")
-            abs_path = os.path.join(self.workspace_root, rel_path)
+            abs_path    = os.path.join(self.workspace_root, rel_path)
 
-            # Read existing content if file already exists (gives model context)
+            # Read existing content so the model can extend/diff it
             existing_content = ""
             if os.path.exists(abs_path):
                 try:
@@ -145,7 +116,7 @@ class WatsonxAdapter(BaseLLMAdapter):
                 design_system=design_system,
             )
 
-            print(f"  [WATSONX] Generating: {rel_path} (iteration {iteration})...")
+            print(f"  [OLLAMA] Generating: {rel_path} (iteration {iteration})...")
             response_text = self._generate(prompt)
             code = self._extract_code_block(response_text, rel_path)
 
@@ -154,7 +125,9 @@ class WatsonxAdapter(BaseLLMAdapter):
                 f.write(code)
 
             created_files.append(abs_path)
-            logs.append(f"watsonx wrote {rel_path} ({len(code.splitlines())} lines).")
+            logs.append(
+                f"Ollama ({self.model}) wrote {rel_path} ({len(code.splitlines())} lines)."
+            )
 
         return {
             "success": True,
@@ -164,9 +137,8 @@ class WatsonxAdapter(BaseLLMAdapter):
 
     def generate_gap_analysis(self, current_repo_state: str) -> List[Dict[str, Any]]:
         """
-        Scans the real workspace file tree, sends a repo map to the model,
-        and asks it to suggest up to 3 logical next ChildCard tasks.
-        Returns a list of ChildCard definition dicts.
+        Scans the real workspace file tree, sends a repo map to Gemma,
+        and returns up to 3 successor ChildCard definitions.
         """
         repo_map = self._build_repo_map()
 
@@ -180,8 +152,8 @@ class WatsonxAdapter(BaseLLMAdapter):
             {current_repo_state}
 
             ## Your Task
-            Identify up to 3 missing features, unimplemented modules, or quality gaps in the
-            codebase above. For each gap, output a JSON object describing a new development task.
+            Identify up to 3 missing features, unimplemented modules, or quality gaps.
+            For each gap output a JSON object describing a new development task.
 
             Respond ONLY with a valid JSON array. No explanation, no markdown, no extra text.
             Each item must follow this exact schema:
@@ -189,16 +161,15 @@ class WatsonxAdapter(BaseLLMAdapter):
                 "id": "child-<short-slug>",
                 "name": "<short task name>",
                 "tactical_objective": "<clear single-sentence instruction for the coding agent>",
-                "deliverables": [{{"path": "<relative/file/path.py>", "description": "<what to create>"}}],
-                "test_commands": ["<pytest or python command to validate>"]
+                "deliverables": [{{"path": "<relative/file/path>", "description": "<what to create>"}}],
+                "test_commands": ["<command to validate>"]
             }}
         """).strip()
 
-        print("  [WATSONX] Running gap analysis on repo...")
+        print("  [OLLAMA] Running gap analysis on repo...")
         response_text = self._generate(prompt)
         tasks = self._parse_json_array(response_text)
 
-        # Sanitise: ensure required keys exist, assign unique ids if missing
         clean_tasks = []
         for task in tasks:
             if not isinstance(task, dict):
@@ -217,12 +188,13 @@ class WatsonxAdapter(BaseLLMAdapter):
     # ------------------------------------------------------------------
 
     def _generate(self, prompt: str) -> str:
-        """Calls the watsonx.ai model and returns the raw response string."""
+        """Calls the Ollama generate endpoint and returns the raw response string."""
         try:
-            response = self._model.generate_text(prompt=prompt)
-            return response if isinstance(response, str) else str(response)
+            client = _ollama.Client(host=self.host)
+            response = client.generate(model=self.model, prompt=prompt)
+            return response.get("response", "") if isinstance(response, dict) else str(response)
         except Exception as e:
-            print(f"  [WATSONX] API error: {e}")
+            print(f"  [OLLAMA] API error: {e}")
             return ""
 
     def _build_code_prompt(
@@ -233,10 +205,10 @@ class WatsonxAdapter(BaseLLMAdapter):
         iteration: int,
         previous_errors: str,
         existing_content: str,
-        design_system: str = "",
+        design_system: str,
     ) -> str:
         """
-        Constructs a structured coding prompt.
+        Builds a structured coding prompt.
         - Injects a MANDATORY design-system compliance block when provided.
         - On iteration > 1, injects previous validation errors for self-healing.
         """
@@ -255,8 +227,8 @@ class WatsonxAdapter(BaseLLMAdapter):
         if iteration > 1 and previous_errors:
             self_heal_block = textwrap.dedent(f"""
                 ## Previous Validation Errors (Self-Healing Required)
-                The code you wrote in the previous iteration failed validation with the following errors.
-                You MUST fix all of these errors in your new response:
+                The code you wrote in the previous iteration failed with these errors.
+                You MUST fix ALL of them in your new response:
 
                 ```
                 {previous_errors.strip()}
@@ -269,13 +241,13 @@ class WatsonxAdapter(BaseLLMAdapter):
                 ## Existing File Content
                 The file already exists with the following content. Modify it as needed:
 
-                ```python
+                ```
                 {existing_content.strip()}
                 ```
             """).strip()
 
         prompt = textwrap.dedent(f"""
-            You are an expert Python software engineer working autonomously inside a coding agent.
+            You are an expert software engineer working autonomously inside a coding agent.
 
             ## Task Objective
             {tactical_objective}
@@ -291,73 +263,52 @@ class WatsonxAdapter(BaseLLMAdapter):
             {existing_block}
 
             ## Instructions
-            - Write complete, production-quality Python code for the file above.
+            - Write complete, production-quality code for the file above.
             - Include all necessary imports.
-            - Do NOT include explanations or commentary outside the code.
+            - Do NOT include explanations or commentary outside the code block.
             - Wrap the entire output in a single ```python ... ``` code block.
         """).strip()
 
         return prompt
 
     def _extract_code_block(self, text: str, rel_path: str) -> str:
-        """
-        Extracts the first ```python ... ``` or ``` ... ``` block from the model response.
-        Falls back to returning the raw text if no code fence is found.
-        """
-        # Try ```python first, then generic ```
+        """Extracts the first fenced code block from the model response."""
         for pattern in [r"```python\s*(.*?)```", r"```\s*(.*?)```"]:
             match = re.search(pattern, text, re.DOTALL)
             if match:
                 return match.group(1).strip()
-
-        # Last resort: return everything (model may have skipped fences)
         return text.strip()
 
     def _build_repo_map(self) -> str:
-        """
-        Walks the workspace directory and returns a compact file-tree string,
-        skipping hidden dirs, __pycache__, and binary files.
-        """
+        """Builds a compact file-tree string of the workspace."""
         lines = []
         skip_dirs = {"__pycache__", ".git", ".jobs", "node_modules", ".venv", "venv"}
         skip_exts = {".pyc", ".pyo", ".png", ".jpg", ".jpeg", ".gif", ".zip", ".tar"}
 
         for root, dirs, files in os.walk(self.workspace_root):
-            # Prune unwanted directories in-place
             dirs[:] = [d for d in dirs if d not in skip_dirs]
-
             rel_root = os.path.relpath(root, self.workspace_root)
             depth = 0 if rel_root == "." else rel_root.count(os.sep) + 1
             indent = "  " * depth
             folder_name = os.path.basename(root) if rel_root != "." else self.workspace_root
             lines.append(f"{indent}{folder_name}/")
-
             for fname in sorted(files):
-                ext = os.path.splitext(fname)[1].lower()
-                if ext in skip_exts:
-                    continue
-                lines.append(f"{indent}  {fname}")
+                if os.path.splitext(fname)[1].lower() not in skip_exts:
+                    lines.append(f"{indent}  {fname}")
 
         return "\n".join(lines)
 
     def _parse_json_array(self, text: str) -> list:
-        """
-        Extracts a JSON array from model output. Handles both raw JSON and
-        JSON embedded inside markdown code fences.
-        """
-        # Strip markdown fences if present
+        """Extracts a JSON array from model output, tolerating markdown fences."""
         for pattern in [r"```json\s*(.*?)```", r"```\s*(.*?)```"]:
             match = re.search(pattern, text, re.DOTALL)
             if match:
                 text = match.group(1).strip()
                 break
-
-        # Find the first [...] block
         array_match = re.search(r"\[.*\]", text, re.DOTALL)
         if array_match:
             try:
                 return json.loads(array_match.group(0))
             except json.JSONDecodeError:
                 pass
-
         return []

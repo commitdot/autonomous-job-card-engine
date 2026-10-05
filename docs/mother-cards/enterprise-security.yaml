@@ -1,0 +1,92 @@
+# ============================================================================
+# AJE Mother Card — Security-Hardened Enterprise Agent
+# ============================================================================
+# Product:   Internal enterprise tooling / SaaS backend
+# Adapter:   WatsonxAdapter (ibm/granite-34b-code-instruct)
+#            → privacy_mode: hybrid ensures sensitive files stay on local LLM
+#
+# Usage:
+#   from src.adapters import WatsonxAdapter
+#   from src.daemon import AutonomousJobCardEngine
+#
+#   adapter = WatsonxAdapter(workspace_root=".")
+#   engine  = AutonomousJobCardEngine(workspace_root=".", adapter=adapter)
+#   engine.run_one_cycle(".jobs/mother_card.yaml")
+# ============================================================================
+
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-enterprise-security
+  name: Security-Hardened Enterprise Agent
+
+spec:
+  # --------------------------------------------------------------------------
+  # Core philosophy — injected into every LLM prompt as a system instruction
+  # --------------------------------------------------------------------------
+  core_philosophy: |
+    Security is non-negotiable. Every line of code must treat user data as
+    hostile. Apply the principle of least privilege everywhere. No hardcoded
+    credentials, secrets, or PII — ever. All inputs must be validated and
+    sanitised before use. Use parameterised queries for all database access.
+    Apply OWASP Top-10 mitigations by default. All public endpoints require
+    authentication, authorisation, rate limiting, and structured audit logging.
+    Type hints are mandatory. Test coverage must exceed 90%. Fail loudly and
+    early — never swallow exceptions silently.
+
+  # --------------------------------------------------------------------------
+  # Design system — ALL generated UI must comply with IBM Carbon Design System
+  # Change to "Google Material Design 3" or "Apple Human Interface Guidelines"
+  # as needed for your target platform.
+  # --------------------------------------------------------------------------
+  design_system: "IBM Carbon Design System"
+
+  # --------------------------------------------------------------------------
+  # Safety policies
+  # --------------------------------------------------------------------------
+  safety_policies:
+    # hybrid = cloud LLM by default; auto-switches to local if a deliverable
+    # path matches any restricted_paths glob pattern below.
+    privacy_mode: hybrid
+
+    restricted_paths:
+      - "**/secrets*"
+      - "**/.env*"
+      - "**/certs/*"
+      - "**/keys/*"
+      - "**/auth/credentials*"
+      - "**/database/config*"
+      - "**/migrations/*"       # schema changes are sensitive — keep local
+
+    banned_commands:
+      - "rm -rf"
+      - "curl"                  # block potential data exfiltration
+      - "wget"
+      - "nc "                   # netcat
+      - "docker system prune"
+      - "DROP TABLE"
+      - "DELETE FROM"           # destructive DB ops require human review
+      - "git push --force"
+
+    max_budget_usd: 20.00
+
+  # --------------------------------------------------------------------------
+  # Global context — passed to every child card prompt
+  # --------------------------------------------------------------------------
+  global_context:
+    target_framework: FastAPI
+    testing_framework: pytest
+    python_version: "3.11"
+    auth_standard: JWT_RS256          # enforce RS256 over HS256
+    password_hashing: argon2          # enforce argon2id over bcrypt/md5
+    logging_standard: structured_json # every log line must be JSON
+    api_versioning: "URI-based /v1/"
+    owasp_compliance: true
+
+status:
+  family_health: Healthy
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []
