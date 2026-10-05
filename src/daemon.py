@@ -1,28 +1,31 @@
 import os
-import time
 import json
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from .models import MotherCard, ChildCard
 from .privacy_guard import PrivacyGuard
 from .sandbox import SandboxRunner
-from .sim_llm import SimLLM
+from .adapters.base import BaseLLMAdapter
+from .adapters.sim_adapter import SimAdapter
+
 
 class AutonomousJobCardEngine:
-    def __init__(self, workspace_root: str):
+    def __init__(self, workspace_root: str, adapter: Optional[BaseLLMAdapter] = None):
         self.workspace_root = workspace_root
         self.jobs_dir = os.path.join(workspace_root, ".jobs")
         self.audit_dir = os.path.join(self.jobs_dir, "audit")
-        
+
         os.makedirs(self.workspace_root, exist_ok=True)
         os.makedirs(self.jobs_dir, exist_ok=True)
         os.makedirs(self.audit_dir, exist_ok=True)
 
-        # Initialize components
+        # Accept any BaseLLMAdapter; fall back to SimAdapter for backward compatibility
+        self.llm: BaseLLMAdapter = adapter or SimAdapter(workspace_root=self.workspace_root)
+
+        # Initialised per-cycle from MotherCard config
         self.privacy_guard = None
         self.sandbox = None
-        self.llm = SimLLM(workspace_root=self.workspace_root)
 
     def write_audit_log(self, child_id: str, action_type: str, details: str, meta: Dict[str, Any] = None):
         """
@@ -164,12 +167,15 @@ class AutonomousJobCardEngine:
                 
                 if not is_system_1:
                     print("[COGNITIVE] Triage: Routing to SYSTEM 2 (Deliberative Sandbox Validation Loop).")
-                    
+
+                    # Accumulate error output across iterations so the adapter can self-heal
+                    previous_errors = ""
+
                     # Iterative Execution and Self-Healing Loop
                     while child.current_iteration < child.max_iterations:
                         child.current_iteration += 1
                         print(f"  [RUN] Starting Iteration {child.current_iteration}/{child.max_iterations}...")
-                        
+
                         # Log iteration attempt
                         self.write_audit_log(
                             child_id=child.id,
@@ -178,13 +184,14 @@ class AutonomousJobCardEngine:
                             meta={"objective": child.tactical_objective}
                         )
 
-                        # Trigger simulated LLM code writing
+                        # Trigger LLM code writing — pass previous errors for self-healing
                         result = self.llm.execute_child_card(
                             tactical_objective=child.tactical_objective,
                             deliverables=child.deliverables,
-                            iteration=child.current_iteration
+                            iteration=child.current_iteration,
+                            previous_errors=previous_errors,
                         )
-                        
+
                         # Record written files to audit
                         self.write_audit_log(
                             child_id=child.id,
@@ -199,7 +206,8 @@ class AutonomousJobCardEngine:
                         # Run Validation Commands inside the sandbox
                         all_passed = True
                         validation_results = []
-                        
+                        previous_errors = ""  # Reset before each validation round
+
                         for cmd in child.validation_commands:
                             print(f"  [TEST] Running Validation: '{cmd}'...")
                             cmd_result = self.sandbox.run_validation(cmd, cwd=self.workspace_root)
@@ -214,6 +222,7 @@ class AutonomousJobCardEngine:
 
                             if not cmd_result["success"]:
                                 all_passed = False
+                                previous_errors += cmd_result["output"]  # Feed into next iteration
                                 print(f"  [WARN] Validation Failed (Exit Code: {cmd_result['exit_code']})")
                                 child.logs.append(f"[Iteration {child.current_iteration}] Validation command '{cmd}' failed.")
                                 child.logs.append(f"Output:\n{cmd_result['output']}")
@@ -227,7 +236,7 @@ class AutonomousJobCardEngine:
                             child.phase = "Completed"
                             child.to_yaml(child_path)
                             print(f"[SUCCESS] Task Completed Successfully in {child.current_iteration} iterations!")
-                            
+
                             self.write_audit_log(
                                 child_id=child.id,
                                 action_type="task_completed",
@@ -236,7 +245,7 @@ class AutonomousJobCardEngine:
                             )
                             break
                         else:
-                            # Validation failed: write card yaml state and continue loop (triggers self-healing next iteration)
+                            # Validation failed: persist state and loop (self-healing on next iteration)
                             child.to_yaml(child_path)
                             print("  [INFO] Triggering autonomous self-healing on next iteration...")
 
