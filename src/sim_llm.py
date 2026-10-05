@@ -89,6 +89,13 @@ def verify_token(token: str) -> bool:
                 with open(path, 'w') as f:
                     f.write(code)
                 created_files.append(path)
+            else:
+                # Default mock content handler for other generic deliverables (Readmes, configurations, docs)
+                code = f"# Mock Content for {rel_path}\nThis file was created heuristically by SimLLM."
+                with open(path, 'w') as f:
+                    f.write(code)
+                created_files.append(path)
+                logs.append(f"Heuristically drafted {rel_path} content.")
 
         return {
             "success": True,

@@ -82,9 +82,41 @@ def setup_mock_project(workspace: str):
     with open(child_path, 'w') as f:
         yaml.safe_dump(child_data, f, default_flow_style=False)
 
+    # 3. Write a second Child Card targeting simple documentation (System 1 Fast-Path)
+    child_docs_data = {
+        "apiVersion": "agent.autonomous.io/v1alpha1",
+        "kind": "ChildCard",
+        "metadata": {
+            "id": "child-006-update-docs",
+            "parent_mother_id": "mother-complaint-router",
+            "name": "Update Project Documentation"
+        },
+        "spec": {
+            "tactical_objective": "Fix standard documentation typos and add project description to README.md",
+            "max_iterations": 3,
+            "deliverables": [
+                {"path": "README.md", "description": "Documentation readme file"}
+            ],
+            "validation": {
+                "test_commands": []
+            }
+        },
+        "status": {
+            "phase": "Pending",
+            "current_iteration": 0,
+            "execution_profile_assigned": "local",
+            "logs": []
+        }
+    }
+
+    child_docs_path = os.path.join(jobs_dir, "child_docs_update.yaml")
+    with open(child_docs_path, 'w') as f:
+        yaml.safe_dump(child_docs_data, f, default_flow_style=False)
+
     print(f"[OK] Created Mock Project inside: {workspace}")
     print(f"[OK] Seeded Mother Card at: {mother_path}")
-    print(f"[OK] Seeded Child Card at: {child_path}")
+    print(f"[OK] Seeded Child Card (System 2 Complex) at: {child_path}")
+    print(f"[OK] Seeded Child Card (System 1 Simple) at: {child_docs_path}")
 
 def run_e2e_test():
     workspace = "test_workspace"

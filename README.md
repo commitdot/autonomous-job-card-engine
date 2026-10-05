@@ -17,20 +17,35 @@ Most AI agents require continuous user prompting, manual error copying, and dire
 
 ---
 
-## 🏗️ Architecture & Flow
+## 🏗️ Dual-Process Cognitive Architecture & Flow
+
+The AJE utilizes a biologically-inspired **Dual-Process (System 1 + System 2)** cognitive architecture to optimize execution latency, API credit cost, and logical validation:
+
+*   **⚡ System 1 (Heuristic Fast-Path)**: Handles low-complexity, non-logical tasks (such as fixing typos, formatting, readme documentation, or docstring additions). The engine runs a single fast forward-pass, performs an abstract syntax tree compile check, and bypasses the slow sandbox validation loop completely—reducing execution time from seconds to milliseconds.
+*   **🧠 System 2 (Deliberative Sandbox Validation Loop)**: Automatically triggered for complex application code, database edits, or security integrations. The engine spins up an isolated sandbox, runs deep unit test verification commands, inspects execution errors, and executes recursive self-healing code drafts until all validation criteria succeed.
 
 ```mermaid
 graph TD
     M[Mother Card: Project Guardian] -->|Spawns| C[Child Card: Specific Task]
-    C -->|Executes| E[Execution Daemon]
-    E -->|Sanitizes Prompts| P[Local Privacy Guard]
-    P -->|Routes| R{Routing Engine}
-    R -- Sensitive / Simple --> LL[Local LLM / Ollama]
-    R -- Complex / Safe --> CL[Cloud API / watsonx.ai]
-    E -->|Runs Tests| V{Validation Passes?}
-    V -- No --> E
-    V -- Yes --> R_G[Gap Analysis & Self-Discovery]
-    R_G -->|Spawns Successors| M
+    C -->|Enters| T{Cognitive Triage\nClassifier}
+    
+    %% System 1 Route
+    T -->|Low-Complexity\nMD, Formatting, Typos| S1[⚡ SYSTEM 1: Heuristic Path]
+    S1 --> S1_Edit[Fast Forward-Pass Draft]
+    S1_Edit --> LintCheck{Compile Lint Pass?}
+    LintCheck -->|Pass| Commit[Commit & Merge Changes]
+    LintCheck -->|Fail| Escalate[Escalate to System 2]
+    
+    %% System 2 Route
+    T -->|High-Complexity\nCode Logic, API, Database| S2[🧠 SYSTEM 2: Deliberative Path]
+    Escalate --> S2
+    
+    S2 --> S2_Run[Sandbox Runner]
+    S2_Run --> TestSuite[Run Validation test_commands]
+    TestSuite --> SelfHeal{Do Tests Pass?}
+    SelfHeal -->|No| S2_Run
+    SelfHeal -->|Yes| R_G[Gap Analysis & Self-Discovery]
+    R_G -->|Autonomously Spawns Successors| M
 ```
 
 ---
