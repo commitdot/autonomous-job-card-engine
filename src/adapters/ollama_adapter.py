@@ -28,7 +28,7 @@ import re
 import json
 import uuid
 import textwrap
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from .base import BaseLLMAdapter
 
@@ -61,6 +61,7 @@ class OllamaAdapter(BaseLLMAdapter):
         workspace_root: str,
         model: str = None,
         host: str = None,
+        mcp_client: Optional[Any] = None,
     ):
         if not _OLLAMA_AVAILABLE:
             raise ImportError(
@@ -70,8 +71,11 @@ class OllamaAdapter(BaseLLMAdapter):
         self.workspace_root = workspace_root
         self.model = model or os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
         self.host  = host  or os.getenv("OLLAMA_HOST",  "http://localhost:11434")
+        self._mcp  = mcp_client  # AJEMcpClient instance, or None
 
         print(f"[OLLAMA] Adapter initialised — model: {self.model} @ {self.host}")
+        if self._mcp:
+            print("[OLLAMA] MCP self-improvement client attached.")
 
     # ------------------------------------------------------------------
     # Public interface (implements BaseLLMAdapter)
@@ -137,10 +141,46 @@ class OllamaAdapter(BaseLLMAdapter):
 
     def generate_gap_analysis(self, current_repo_state: str) -> List[Dict[str, Any]]:
         """
-        Scans the real workspace file tree, sends a repo map to Gemma,
-        and returns up to 3 successor ChildCard definitions.
+        Analyses the repository for gaps. When an MCP client is attached,
+        collects live signals (issues, failing tests, coverage, CVEs, TODOs, PR
+        feedback) and injects them into the prompt for precise gap detection.
+        Falls back to file-tree-only analysis when no MCP client is present.
+        Returns up to 3 successor ChildCard definitions.
         """
         repo_map = self._build_repo_map()
+
+        # ------------------------------------------------------------------
+        # Live signal collection via MCP (optional)
+        # ------------------------------------------------------------------
+        live_signals_block = ""
+        if self._mcp:
+            signals = self._mcp.collect_gap_signals()
+            live_signals_block = textwrap.dedent(f"""
+                ## Live Repository Signals (from MCP)
+                Use these real signals as the PRIMARY source for gap identification.
+                Prioritise: security alerts > failing tests > open issues > coverage gaps > TODOs.
+
+                ### Open Issues (bugs & enhancements)
+                {json.dumps(signals.get("open_issues", {}), indent=2)}
+
+                ### Failing Tests
+                {json.dumps(signals.get("failing_tests", {}), indent=2)}
+
+                ### Coverage Report (modules below threshold)
+                {json.dumps(signals.get("coverage", {}), indent=2)}
+
+                ### Security Alerts (CVEs)
+                {json.dumps(signals.get("security_alerts", {}), indent=2)}
+
+                ### Outdated Dependencies
+                {json.dumps(signals.get("outdated_deps", {}), indent=2)}
+
+                ### TODO / FIXME Comments
+                {json.dumps(signals.get("todo_comments", {}), indent=2)}
+
+                ### Open PR Review Feedback
+                {json.dumps(signals.get("pr_feedback", {}), indent=2)}
+            """).strip()
 
         prompt = textwrap.dedent(f"""
             You are a senior software architect performing a gap analysis on a codebase.
@@ -150,6 +190,8 @@ class OllamaAdapter(BaseLLMAdapter):
 
             ## Current State Summary
             {current_repo_state}
+
+            {live_signals_block}
 
             ## Your Task
             Identify up to 3 missing features, unimplemented modules, or quality gaps.

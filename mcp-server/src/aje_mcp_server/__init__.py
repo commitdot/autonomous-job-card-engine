@@ -1,0 +1,1 @@
+# AJE MCP Server package
