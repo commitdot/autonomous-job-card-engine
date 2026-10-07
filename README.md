@@ -203,7 +203,59 @@ Here is the complete terminal walkthrough of AJE from initialization to live exe
 --------------------------------------------------
 ```
 
-### 4️⃣ Final Fleet Status & Discovered Backlog (`aje status`)
+### 4️⃣ Injecting an Ad-Hoc Bug Fix or Feature Ticket (`aje inject`)
+
+Inject a custom task or production bug report directly into the squad backlog via flags or interactive prompts:
+
+```bash
+python -m src.cli.main inject \
+  --name "Fix Token Expiration Bug" \
+  --squad security \
+  --objective "Handle ExpiredSignatureError properly in app/auth.py and return 401 Unauthorized" \
+  --deliverables "app/auth.py,tests/test_auth_expired.py" \
+  --test "python -m unittest tests/test_auth_expired.py" \
+  --rag-query "Enterprise Authentication RFC token expiration handling"
+```
+
+**Terminal Output Confirmation:**
+
+```text
+✔ Successfully queued new Worker Card: Fix Token Expiration Bug [ID: child-manual-fix-token-expiratio]
+  Saved to: .jobs/child_child-manual-fix-token-expiratio.yaml
+```
+
+**Generated Child Worker Card YAML (`.jobs/child_child-manual-fix-token-expiratio.yaml`):**
+
+```yaml
+apiVersion: agent.autonomous.io/v1alpha1
+kind: ChildCard
+metadata:
+  id: child-manual-fix-token-expiratio
+  name: Fix Token Expiration Bug
+  parent_mother_id: mother-saas-backend
+spec:
+  parent_squad_id: squad-security
+  tactical_objective: Handle ExpiredSignatureError properly in app/auth.py and return 401 Unauthorized
+  deliverables:
+    - description: Injected task deliverable
+      path: app/auth.py
+    - description: Injected task deliverable
+      path: tests/test_auth_expired.py
+  max_iterations: 5
+  rag_query: Enterprise Authentication RFC token expiration handling
+  validation:
+    test_commands:
+      - python -m unittest tests/test_auth_expired.py
+status:
+  current_iteration: 0
+  execution_profile_assigned: local
+  git_branch: ''
+  logs:
+    - Manually injected via CLI command 'aje inject'
+  phase: Pending
+```
+
+### 5️⃣ Final Fleet Status & Discovered Backlog (`aje status`)
 
 ```text
 ┌────────────────────────────────────────────────────────────────────┐
@@ -213,9 +265,10 @@ Here is the complete terminal walkthrough of AJE from initialization to live exe
 │  Privacy Mode: hybrid    Design System: IBM Carbon Design System   │
 │  GitHub Remote: my-org/saas-backend (Target: main)                 │
 ├────────────────────────────────────────────────────────────────────┤
-│  Task Backlog & Workers (4 total cards):                           │
+│  Task Backlog & Workers (5 total cards):                           │
 │   🟢 [child-006-update-docs] Update Project Documentation  (Done)  │
 │   🟢 [child-003-jwt-auth]    JWT Authentication System     (Done)  │
+│   ⚪ [child-manual-fix-toke] Fix Token Expiration Bug      (Pending)│
 │   ⚪ [child-004-jwt-refresh] Add JWT Refresh Token Support (Queue) │
 │   ⚪ [child-005-add-rate]    Implement API Rate Limiting   (Queue) │
 └────────────────────────────────────────────────────────────────────┘
