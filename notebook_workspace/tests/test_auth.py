@@ -1,6 +1,7 @@
 # Test suite for auth.py
 import sys
 import os
+# Add project root to python search path dynamically
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.auth import hash_password, verify_token
