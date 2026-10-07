@@ -132,6 +132,8 @@ class MobileBridgeHandler(BaseHTTPRequestHandler):
                 "parent_squad_id": payload.get("parent_squad_id", "squad-backend"),
                 "tactical_objective": payload.get("tactical_objective", ""),
                 "deliverables": payload.get("deliverables", []),
+                "external_ticket_id": payload.get("external_ticket_id") or payload.get("ticket_id"),
+                "source_platform": payload.get("source_platform") or payload.get("platform"),
                 "validation": {
                     "test_commands": payload.get("test_commands", [])
                 }

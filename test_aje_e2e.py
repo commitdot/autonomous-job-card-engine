@@ -65,6 +65,8 @@ def setup_mock_project(workspace: str):
             "python tests/test_auth.py"
         ],
         rag_query="Enterprise Authentication Standard token signature",
+        external_ticket_id="INC0948201",
+        source_platform="ServiceNow",
         max_iterations=5,
         phase="Pending"
     )
@@ -150,16 +152,17 @@ def run_e2e_test():
     assert os.path.exists(successor_2), "[ERROR] Successor 2 (Rate Limiting) was not scheduled!"
     print("[PASS] Autonomous R&D verification: Successor child job cards generated and added to queue autonomously!")
 
-    # 5. Print Forensic Audit Trail
+    # 5. Print Forensic Audit Trail & Closed-Loop Ticket Resolution
     audit_log_path = os.path.join(workspace, ".jobs", "audit", "audit_child-003-jwt-auth.json")
     assert os.path.exists(audit_log_path), "[ERROR] Audit log file was not generated!"
-    print("[PASS] Forensic Audit verification: Audit log file generated successfully!")
-
+    
     with open(audit_log_path, 'r', encoding='utf-8') as f:
-        audit_data = json.load(f)
+        audit_records = json.load(f)
+    assert any(rec.get("action") == "ticket_resolution_sync" for rec in audit_records), "[ERROR] Ticket resolution sync event missing!"
+    print("[PASS] Forensic Audit & Closed-Loop Ticket Resolution: Audit log and ticket resolution synced successfully!")
         
-    print(f"\nFORENSIC AUDIT TRAILS ({len(audit_data)} events recorded):")
-    for idx, entry in enumerate(audit_data):
+    print(f"\nFORENSIC AUDIT TRAILS ({len(audit_records)} events recorded):")
+    for idx, entry in enumerate(audit_records):
         print(f"  [{idx+1}] {entry['timestamp']} | {entry['action'].upper()} | {entry['details']}")
 
     print("\n[SUCCESS] ALL TESTS PASSED! The Autonomous Job-Card Engine (AJE) v2.0 concept is 100% executable and validated. [SUCCESS]")

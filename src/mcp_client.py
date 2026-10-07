@@ -148,13 +148,14 @@ class AJEMcpClient:
         signals: dict[str, Any] = {}
 
         tool_calls = [
-            ("open_issues",     "get_open_issues",       {}),
-            ("failing_tests",   "get_failing_tests",     {}),
-            ("coverage",        "get_coverage_report",   {}),
-            ("outdated_deps",   "get_outdated_deps",     {}),
-            ("security_alerts", "get_security_alerts",   {}),
-            ("todo_comments",   "scan_todo_comments",    {}),
-            ("pr_feedback",     "get_pr_review_feedback",{}),
+            ("open_issues",        "get_open_issues",          {}),
+            ("enterprise_tickets", "get_enterprise_tickets",   {}),
+            ("failing_tests",      "get_failing_tests",        {}),
+            ("coverage",           "get_coverage_report",      {}),
+            ("outdated_deps",      "get_outdated_deps",        {}),
+            ("security_alerts",    "get_security_alerts",      {}),
+            ("todo_comments",      "scan_todo_comments",       {}),
+            ("pr_feedback",        "get_pr_review_feedback",   {}),
         ]
 
         for signal_key, tool_name, args in tool_calls:

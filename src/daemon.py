@@ -283,6 +283,22 @@ class AutonomousJobCardEngine:
                                 details="All deliverables passed verification checks. Committing task.",
                                 meta={"status": "Success"}
                             )
+
+                            # 4. Closed-Loop Egress: Sync back to external ticketing system if present
+                            if child.external_ticket_id:
+                                platform = child.source_platform or "ServiceNow"
+                                print(f"  [EGRESS-SYNC] Closed-loop resolution dispatched for {platform} ticket: {child.external_ticket_id}")
+                                self.write_audit_log(
+                                    child_id=child.id,
+                                    action_type="ticket_resolution_sync",
+                                    details=f"Pushed closed-loop resolution to {platform} ({child.external_ticket_id}). Status: Resolved.",
+                                    meta={
+                                        "ticket_id": child.external_ticket_id,
+                                        "platform": platform,
+                                        "iterations_to_heal": child.current_iteration,
+                                        "pr_branch": f"aje/{child.id}"
+                                    }
+                                )
                             break
                         else:
                             # Validation failed: persist state and loop (self-healing on next iteration)

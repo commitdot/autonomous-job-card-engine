@@ -124,6 +124,8 @@ def cmd_inject(args):
     deliv_str = args.deliverables or input("Deliverable paths (comma-separated): ").strip()
     test_str = args.test or input("Validation command (e.g. pytest tests/): ").strip()
     rag_q = args.rag_query or input("RAG query (optional): ").strip() or None
+    ticket_id = args.ticket or None
+    platform = args.platform or ("ServiceNow" if ticket_id else None)
 
     deliverables = [{"path": p.strip(), "description": "Injected task deliverable"} for p in deliv_str.split(",") if p.strip()]
     validation_commands = [test_str.strip()] if test_str.strip() else []
@@ -138,6 +140,8 @@ def cmd_inject(args):
         deliverables=deliverables,
         validation_commands=validation_commands,
         rag_query=rag_q,
+        external_ticket_id=ticket_id,
+        source_platform=platform,
         phase="Pending",
         logs=["Manually injected via CLI command 'aje inject'"]
     )
@@ -205,6 +209,8 @@ def main():
     p_inject.add_argument("--deliverables", help="Comma-separated deliverable paths")
     p_inject.add_argument("--test", help="Validation command")
     p_inject.add_argument("--rag-query", help="RAG context query")
+    p_inject.add_argument("--ticket", help="External ticket ID (e.g. INC0948201, SF-8492)")
+    p_inject.add_argument("--platform", help="Source platform (ServiceNow, Salesforce, Jira, Pega, Buganizer)")
     p_inject.set_defaults(func=cmd_inject)
 
     # start

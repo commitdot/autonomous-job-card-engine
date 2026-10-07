@@ -183,6 +183,8 @@ class ChildCard:
     deliverables: List[Dict[str, str]] = field(default_factory=list)
     validation_commands: List[str] = field(default_factory=list)
     rag_query: Optional[str] = None
+    external_ticket_id: Optional[str] = None
+    source_platform: Optional[str] = None
     
     # Engine status
     phase: str = "Pending"  # Pending, Running, Validating, Completed, Failed
@@ -208,6 +210,8 @@ class ChildCard:
             deliverables=spec.get("deliverables", []),
             validation_commands=spec.get("validation", {}).get("test_commands", []),
             rag_query=spec.get("rag_query"),
+            external_ticket_id=spec.get("external_ticket_id"),
+            source_platform=spec.get("source_platform"),
             phase=status.get("phase", "Pending"),
             current_iteration=status.get("current_iteration", 0),
             max_iterations=spec.get("max_iterations", 5),
@@ -231,6 +235,8 @@ class ChildCard:
                 "deliverables": self.deliverables,
                 "max_iterations": self.max_iterations,
                 "rag_query": self.rag_query,
+                "external_ticket_id": self.external_ticket_id,
+                "source_platform": self.source_platform,
                 "validation": {
                     "test_commands": self.validation_commands
                 }

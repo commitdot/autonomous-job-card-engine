@@ -299,6 +299,53 @@ python -m src.cli.main inject \
 
 ---
 
+## 🎫 Enterprise Ticketing Integration (ServiceNow, Salesforce, Jira, Pega, Buganizer)
+
+AJE supports seamless bi-directional integration with enterprise ticketing platforms using a **Zero-Inbound Hybrid Architecture**:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant CRM as ServiceNow / Salesforce / Jira / Pega
+    participant MCP as AJE FastMCP Server (Outbound Poller)
+    participant M as Mother Card (Triage & Governance)
+    participant C as Tactical Child Card (System 2)
+    participant S as Sandbox & Self-Healing Loop
+    participant VCS as GitHub / GitLab (PR Creator)
+    participant Sync as Resolution Egress Syncer
+
+    Note over MCP,CRM: Phase 1: Outbound Pull (Zero Inbound Ports)
+    M->>MCP: Call get_enterprise_tickets(platform="servicenow")
+    MCP->>CRM: Outbound GET /api/now/table/incident
+    CRM-->>MCP: Returns Open Incidents / Defect Reports
+    MCP-->>M: Parsed Ticket Metadata & Objectives
+
+    Note over M,C: Phase 2: Autonomous Triage & Card Generation
+    M->>M: Deduplicate, evaluate squad capacity & budget
+    M->>C: Write .jobs/child_INC0948201.yaml (Phase = Pending)
+
+    Note over C,S: Phase 3: Cognitive Triage & Self-Healing
+    C->>S: Write Deliverables & Run Pytest / Sandbox Loop
+    S-->>C: Tests Pass (Exit Code: 0 in 2 iterations)
+    C->>C: Mark Phase = 'Completed' & write .jobs/audit/
+
+    Note over C,CRM: Phase 4: Closed-Loop Outbound Push
+    C->>VCS: Push branch `aje/child_INC0948201` & open PR
+    VCS-->>Sync: Return PR URL: https://github.com/.../pull/42
+    Sync->>CRM: Outbound PATCH /incident/INC0948201 (State = Resolved)
+    Sync->>CRM: Attach .jobs/audit/ log & link PR in Work Notes
+```
+
+### Supported Ingestion & Resolution Modes
+
+| Strategy | Ingestion Mechanism | Security & Firewall | Use Case |
+|---|---|---|---|
+| **Hybrid Poller + Egress (Recommended)** | Outbound FastMCP `get_enterprise_tickets` tool | 🔒 **Zero Inbound Ports Required** (100% Outbound HTTPS) | Air-gapped VPCs, enterprise SOC2 workflows, 24/7 autonomous maintenance |
+| **Direct Webhook Push** | Inbound HTTP POST `/api/card/inject` | ⚠️ Requires API Gateway / Reverse Proxy | Immediate real-time escalation on critical P1 incidents |
+| **CLI Dispatch** | `python -m src.cli.main inject --ticket INC0948201` | 🔒 Local execution | Developer ad-hoc ticket resolution |
+
+---
+
 ## 📱 Mobile Companion & Web UI
 
 AJE includes a zero-dependency HTTP/JSON bridge on port 7890 (`src/mobile_bridge.py`) that syncs workspace state in real-time to mobile devices, dashboards, and tablet clients:

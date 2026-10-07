@@ -7,6 +7,7 @@ An MCP (Model Context Protocol) server that exposes **live repository intelligen
 | Tool | Signal source | What it returns |
 |---|---|---|
 | `get_open_issues` | GitHub Issues API | Open bugs + enhancement requests |
+| `get_enterprise_tickets` | ServiceNow / Salesforce / Jira / Pega | High-priority incidents and defect tickets |
 | `get_failing_tests` | pytest `--json-report` output | Test functions that failed in last run |
 | `get_coverage_report` | `coverage.py` JSON report | Modules below the coverage threshold |
 | `get_outdated_deps` | `pip list --outdated --json` | Dependencies with newer versions available |
@@ -38,6 +39,9 @@ aje-mcp-server
 | `GITHUB_TOKEN` | For GitHub tools | Personal access token or GitHub App token |
 | `GITHUB_REPO` | For GitHub tools | `owner/repo` slug, e.g. `commitdot/autonomous-job-card-engine` |
 | `AJE_WORKSPACE` | For file-scan tools | Absolute path to the workspace root being managed |
+| `SERVICENOW_INSTANCE` | Optional (ServiceNow) | ServiceNow instance slug (e.g. `dev12345`) |
+| `SERVICENOW_USER` / `_PASSWORD` | Optional (ServiceNow) | Basic authentication credentials |
+| `SALESFORCE_INSTANCE_URL` / `_AUTH_TOKEN` | Optional (Salesforce) | Salesforce REST API endpoint & Bearer token |
 | `COVERAGE_THRESHOLD` | Optional | Minimum acceptable coverage % (default: `80`) |
 
 ## Wiring into AJE gap analysis
