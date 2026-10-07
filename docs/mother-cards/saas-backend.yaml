@@ -1,0 +1,62 @@
+# ============================================================================
+# AJE Mother Card — SaaS Backend & API Modernizer
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-saas-backend
+  name: SaaS Backend & API Modernizer Mother Card
+
+spec:
+  archetype: saas-backend
+  core_philosophy: |
+    Production-grade SaaS backend service. Every endpoint must be fully typed,
+    backed by automated unit tests with >85% coverage, and comply with OpenAPI 3.1
+    contracts. Use strict password hashing (Argon2id/bcrypt), JWT token lifetimes,
+    and Redis rate-limiting. Maintain backwards compatibility and structured logging.
+
+  design_system: "IBM Carbon Design System"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/.env*"
+      - "**/database/credentials/*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf"
+      - "docker system prune"
+      - "git push --force"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: true
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs"
+    - "rfc"
+    - "schemas"
+
+  squad_leads:
+    - backend
+    - security
+    - qa
+    - devops
+
+  global_context:
+    target_framework: "FastAPI"
+    testing_framework: "pytest"
+    db_orm: "SQLAlchemy"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

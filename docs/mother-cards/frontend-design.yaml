@@ -1,0 +1,57 @@
+# ============================================================================
+# AJE Mother Card — Frontend & Design System Enforcer
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-frontend-design
+  name: Frontend & Design System Enforcer Mother Card
+
+spec:
+  archetype: frontend-design
+  core_philosophy: |
+    Accessible, responsive, design-token-compliant user interfaces.
+    All components must strictly adhere to design system tokens (colors, spacing, typography).
+    Ensure WCAG 2.1 AA accessibility compliance across all interactive elements.
+    Write component unit tests and visual snapshot verifications.
+
+  design_system: "IBM Carbon Design System"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/.env*"
+      - "**/*.pem"
+    banned_commands:
+      - "rm -rf"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/ui-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: true
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/design-system"
+    - "docs/components"
+
+  squad_leads:
+    - ui
+    - qa
+    - accessibility
+
+  global_context:
+    framework: "React"
+    styling: "Tailwind / Carbon Components"
+    testing_framework: "vitest"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []
