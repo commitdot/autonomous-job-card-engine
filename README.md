@@ -115,7 +115,115 @@ python -m src.cli.main init
 
 ---
 
-## 🖥️ CLI Commands & Usage
+## 🖥️ End-to-End CLI & Terminal UI Walkthrough
+
+Here is the complete terminal walkthrough of AJE from initialization to live execution and autonomous completion:
+
+### 1️⃣ Project Initialization Wizard (`aje init`)
+
+```text
+======================================================================
+  🤖 AUTONOMOUS JOB-CARD ENGINE (AJE) — PROJECT SETUP WIZARD
+======================================================================
+
+[1/4] Workspace Location: /workspace/saas-backend
+  Project Name [Autonomous Project]: SaaS Backend & API Modernizer
+
+[2/4] Link Remote GitHub Repository (Optional):
+  GitHub Repo Slug (owner/repo) [none]: my-org/saas-backend
+  Target Base Branch [main]: main
+
+[3/4] Select Mother Card Archetype:
+  1) 🚀 SaaS Backend & API Modernizer (FastAPI / Carbon Design)
+  2) 🛡️  Enterprise Security & Compliance Guardian (Air-Gapped Local)
+  3) 🌐 Autonomous 24/7 Open-Source Maintainer (Public Repo / Material 3)
+  4) 🎨 Frontend & Design System Enforcer (React / Tailwind)
+  5) 🛠️  Custom Blank Canvas
+  Choose archetype [1]: 1
+
+✔ Successfully created .jobs/mother_card.yaml
+✔ Initialized .jobs/audit/ and .jobs/rag/
+✔ Linked to remote GitHub: my-org/saas-backend
+
+✨ Setup complete! Run 'python -m src.cli.main start' to boot the engine.
+```
+
+### 2️⃣ Status & Backlog Inspection (`aje status`)
+
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│  🤖 AJE STATUS — SaaS Backend & API Modernizer Mother Card        │
+├────────────────────────────────────────────────────────────────────┤
+│  Health: Healthy         Archetype: saas-backend                   │
+│  Privacy Mode: hybrid    Design System: IBM Carbon Design System   │
+│  GitHub Remote: my-org/saas-backend (Target: main)                 │
+├────────────────────────────────────────────────────────────────────┤
+│  Task Backlog & Workers (2 total cards):                           │
+│   ⚪ [child-006-update-docs] Update Project Documentation (Pending)│
+│   ⚪ [child-003-jwt-auth]    JWT Authentication System    (Pending)│
+└────────────────────────────────────────────────────────────────────┘
+```
+
+### 3️⃣ Live Autonomous Cycle Execution & Self-Healing (`aje start`)
+
+```text
+--------------------------------------------------
+[RUN] Booting Autonomous Job-Card Engine Cycle...
+--------------------------------------------------
+[INFO] Mother Guardian Loaded: SaaS Backend & API Modernizer (Privacy: hybrid)
+[INFO] Design System Enforced: IBM Carbon Design System
+[INFO] Linked GitHub Remote: my-org/saas-backend (Target: main)
+  [RAG] Indexed 2 local documentation chunks.
+
+[INFO] Found Pending Child Card: Update Project Documentation [ID: child-006-update-docs | Squad: squad-qa]
+[SEC] Privacy Guard assigned profile: 'CLOUD' for deliverables.
+  [RAG] Injected internal architecture context for 'Update Project Documentation'.
+[COGNITIVE] Triage: Low-complexity task detected. Routing to SYSTEM 1 (Heuristic Fast-Path).
+[SUCCESS] System 1 completed task successfully without sandbox overhead!
+
+[INFO] Conducting Semantic Gap-Analysis & Autonomous Discovery...
+[NEW] Mother autonomously scheduled successor: Add JWT Refresh Token Support [ID: child-004-jwt-refresh-tokens | Squad: squad-qa]
+[NEW] Mother autonomously scheduled successor: Implement API Rate Limiting [ID: child-005-add-rate-limiting | Squad: squad-qa]
+
+[INFO] Found Pending Child Card: JWT Authentication System [ID: child-003-jwt-auth | Squad: squad-backend]
+[SEC] Privacy Guard assigned profile: 'CLOUD' for deliverables.
+  [RAG] Injected internal architecture context for 'JWT Authentication System'.
+[COGNITIVE] Triage: Routing to SYSTEM 2 (Deliberative Sandbox Validation Loop).
+  [RUN] Starting Iteration 1/5...
+  [TEST] Running Validation: 'python tests/test_auth.py'...
+  [WARN] Validation Failed (Exit Code: 1)
+  [INFO] Triggering autonomous self-healing on next iteration...
+  [RUN] Starting Iteration 2/5...
+  [TEST] Running Validation: 'python tests/test_auth.py'...
+  [OK] Validation Passed!
+[SUCCESS] Task Completed Successfully in 2 iterations!
+
+--------------------------------------------------
+[SUCCESS] Autonomous Job-Card Cycle Complete.
+--------------------------------------------------
+```
+
+### 4️⃣ Final Fleet Status & Discovered Backlog (`aje status`)
+
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│  🤖 AJE STATUS — SaaS Backend & API Modernizer Mother Card        │
+├────────────────────────────────────────────────────────────────────┤
+│  Health: Healthy         Archetype: saas-backend                   │
+│  Privacy Mode: hybrid    Design System: IBM Carbon Design System   │
+│  GitHub Remote: my-org/saas-backend (Target: main)                 │
+├────────────────────────────────────────────────────────────────────┤
+│  Task Backlog & Workers (4 total cards):                           │
+│   🟢 [child-006-update-docs] Update Project Documentation  (Done)  │
+│   🟢 [child-003-jwt-auth]    JWT Authentication System     (Done)  │
+│   ⚪ [child-004-jwt-refresh] Add JWT Refresh Token Support (Queue) │
+│   ⚪ [child-005-add-rate]    Implement API Rate Limiting   (Queue) │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🛠️ CLI Command Reference
 
 ```bash
 # Boot the autonomous engine cycle with live terminal dashboard
@@ -123,6 +231,9 @@ python -m src.cli.main start
 
 # Check Mother health, active squad, and pending backlog queue
 python -m src.cli.main status
+
+# Configure repository bindings
+python -m src.cli.main link --remote "my-org/saas-backend" --branch "main"
 
 # Manually inject an ad-hoc feature request or bug ticket
 python -m src.cli.main inject \
@@ -135,9 +246,9 @@ python -m src.cli.main inject \
 
 ---
 
-## 📱 Mobile Companion Bridge
+## 📱 Mobile Companion & Web UI
 
-AJE includes a lightweight HTTP/JSON bridge that streams real-time `.jobs/` state to mobile devices or custom dashboards:
+AJE includes a zero-dependency HTTP/JSON bridge on port 7890 (`src/mobile_bridge.py`) that syncs workspace state in real-time to mobile devices, dashboards, and tablet clients:
 
 ```python
 from src.mobile_bridge import start_mobile_bridge
@@ -147,9 +258,47 @@ server = start_mobile_bridge(workspace_root=".", port=7890)
 server.serve_forever()
 ```
 
-* **`GET /api/status`**: Returns real-time Mother health, active workers, and discovered backlog.
-* **`GET /api/audit`**: Dumps forensic execution audit logs.
-* **`POST /api/card/approve`**: One-touch approval for newly discovered successor cards.
+### Mobile Companion UI Mockup
+
+```text
+ ┌────────────────────────────────────────┐
+ │ 9:41 📡                             🔋 │
+ │ 🤖 AJE Fleet Control          [LIVE 🟢]│
+ ├────────────────────────────────────────┤
+ │ 🛡️ MOTHER STATUS: Healthy             │
+ │ Org: my-org/saas-backend (main)        │
+ │ Spend: $0.00 / $20.00 • Privacy: Hybrid│
+ ├────────────────────────────────────────┤
+ │ 👥 SQUAD LEADS                         │
+ │ [Backend]  [Security]  [QA]  [UI]      │
+ ├────────────────────────────────────────┤
+ │ ⚡ ACTIVE COGNITIVE CYCLE              │
+ │ ┌────────────────────────────────────┐ │
+ │ │ 🟡 child-003-jwt-auth              │ │
+ │ │ Squad: squad-backend               │ │
+ │ │ Step: System 2 Self-Healing (2/5)  │ │
+ │ │ [✓] RAG Context Injected (RFC-042) │ │
+ │ │ [✓] Hashlib & PyJWT Healed         │ │
+ │ │ [✓] Pytest: 4 passed, 0 failed     │ │
+ │ └────────────────────────────────────┘ │
+ ├────────────────────────────────────────┤
+ │ 🔍 AUTONOMOUS SUCCESSOR DISCOVERY      │
+ │ ┌────────────────────────────────────┐ │
+ │ │ 💡 child-004-jwt-refresh-tokens    │ │
+ │ │ Discovered via gap-analysis        │ │
+ │ │ [ 👈 Dismiss ]     [ Approve 👉 ]  │ │
+ │ └────────────────────────────────────┘ │
+ ├────────────────────────────────────────┤
+ │ ➕ Quick Task Inject                   │
+ │ [ 💬 Task Name / Objective...    ][+]  │
+ └────────────────────────────────────────┘
+```
+
+### Mobile Bridge API Endpoints
+
+* **`GET /api/status`**: Returns real-time Mother health, squad cards, active workers, and backlog.
+* **`GET /api/audit`**: Returns forensic execution audit events and test traces.
+* **`POST /api/card/approve`**: One-touch swipe-to-approve newly discovered successor cards.
 * **`POST /api/card/inject`**: Remote task/bug injection from mobile companion.
 
 ---

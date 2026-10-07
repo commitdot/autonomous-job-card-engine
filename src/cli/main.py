@@ -161,6 +161,29 @@ def cmd_start(args):
     engine.run_one_cycle(mother_path)
 
 
+def cmd_link(args):
+    workspace = os.path.abspath(args.workspace or ".")
+    mother_path = os.path.join(workspace, ".jobs", "mother_card.yaml")
+
+    if not os.path.exists(mother_path):
+        print(f"No active Mother Card found at {mother_path}. Run 'aje init' first.")
+        return
+
+    mother = MotherCard.from_yaml(mother_path)
+    remote = args.remote or input(f"GitHub Repo Slug [{mother.repo.remote_slug or 'none'}]: ").strip()
+    target_branch = args.branch or input(f"Target Branch [{mother.repo.target_branch}]: ").strip()
+
+    if remote:
+        mother.repo.remote_slug = remote
+    if target_branch:
+        mother.repo.target_branch = target_branch
+
+    mother.to_yaml(mother_path)
+    print(f"✔ Updated repository bindings for {mother.name}")
+    print(f"  Remote: {mother.repo.remote_slug}")
+    print(f"  Branch: {mother.repo.target_branch}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Autonomous Job-Card Engine (AJE) CLI")
     parser.add_argument("--workspace", "-w", default=".", help="Workspace root directory")
@@ -187,6 +210,12 @@ def main():
     # start
     p_start = subparsers.add_parser("start", help="Run the autonomous engine loop")
     p_start.set_defaults(func=cmd_start)
+
+    # link
+    p_link = subparsers.add_parser("link", help="Configure local and remote GitHub repository bindings")
+    p_link.add_argument("--remote", help="GitHub repo slug (owner/repo)")
+    p_link.add_argument("--branch", help="Target base branch")
+    p_link.set_defaults(func=cmd_link)
 
     args = parser.parse_args()
     if not args.command:

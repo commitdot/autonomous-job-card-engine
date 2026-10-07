@@ -71,6 +71,25 @@ spec:
 
     max_budget_usd: 20.00
 
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/sec-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: true
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs"
+    - "rfc"
+    - "schemas"
+
+  squad_leads:
+    - security
+    - audit
+    - qa
+
   # --------------------------------------------------------------------------
   # Global context — passed to every child card prompt
   # --------------------------------------------------------------------------
