@@ -209,8 +209,8 @@ def main():
     p_inject.add_argument("--deliverables", help="Comma-separated deliverable paths")
     p_inject.add_argument("--test", help="Validation command")
     p_inject.add_argument("--rag-query", help="RAG context query")
-    p_inject.add_argument("--ticket", help="External ticket ID (e.g. INC0948201, SF-8492)")
-    p_inject.add_argument("--platform", help="Source platform (ServiceNow, Salesforce, Jira, Pega, Buganizer)")
+    p_inject.add_argument("--ticket", help="External ticket or issue ID (e.g. GH-#14, INC0948201, SF-8492)")
+    p_inject.add_argument("--platform", help="Source platform (GitHub, ServiceNow, Salesforce, Jira, Pega, Buganizer)")
     p_inject.set_defaults(func=cmd_inject)
 
     # start

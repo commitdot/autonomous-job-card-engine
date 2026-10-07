@@ -299,14 +299,14 @@ python -m src.cli.main inject \
 
 ---
 
-## 🎫 Enterprise Ticketing Integration (ServiceNow, Salesforce, Jira, Pega, Buganizer)
+## 🎫 Enterprise & GitHub Ticketing Integration (GitHub Issues, ServiceNow, Salesforce, Jira, Pega, Buganizer)
 
-AJE supports seamless bi-directional integration with enterprise ticketing platforms using a **Zero-Inbound Hybrid Architecture**:
+AJE supports seamless bi-directional integration with GitHub Issues and enterprise ticketing platforms using a **Zero-Inbound Hybrid Architecture**:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant CRM as ServiceNow / Salesforce / Jira / Pega
+    participant CRM as GitHub / ServiceNow / Salesforce / Jira / Pega
     participant MCP as AJE FastMCP Server (Outbound Poller)
     participant M as Mother Card (Triage & Governance)
     participant C as Tactical Child Card (System 2)
@@ -315,14 +315,14 @@ sequenceDiagram
     participant Sync as Resolution Egress Syncer
 
     Note over MCP,CRM: Phase 1: Outbound Pull (Zero Inbound Ports)
-    M->>MCP: Call get_enterprise_tickets(platform="servicenow")
-    MCP->>CRM: Outbound GET /api/now/table/incident
-    CRM-->>MCP: Returns Open Incidents / Defect Reports
+    M->>MCP: Call get_enterprise_tickets(platform="github")
+    MCP->>CRM: Outbound GET /repos/{owner}/{repo}/issues (or ServiceNow / Salesforce API)
+    CRM-->>MCP: Returns Open Issues / Incidents (e.g. GH-#14 / INC0948201)
     MCP-->>M: Parsed Ticket Metadata & Objectives
 
     Note over M,C: Phase 2: Autonomous Triage & Card Generation
     M->>M: Deduplicate, evaluate squad capacity & budget
-    M->>C: Write .jobs/child_INC0948201.yaml (Phase = Pending)
+    M->>C: Write .jobs/child_GH-14.yaml (Phase = Pending)
 
     Note over C,S: Phase 3: Cognitive Triage & Self-Healing
     C->>S: Write Deliverables & Run Pytest / Sandbox Loop
@@ -330,9 +330,9 @@ sequenceDiagram
     C->>C: Mark Phase = 'Completed' & write .jobs/audit/
 
     Note over C,CRM: Phase 4: Closed-Loop Outbound Push
-    C->>VCS: Push branch `aje/child_INC0948201` & open PR
+    C->>VCS: Push branch `aje/child_GH-14` & open PR (Body: "Closes #14")
     VCS-->>Sync: Return PR URL: https://github.com/.../pull/42
-    Sync->>CRM: Outbound PATCH /incident/INC0948201 (State = Resolved)
+    Sync->>CRM: Outbound update (Close Issue #14 / ServiceNow State = Resolved)
     Sync->>CRM: Attach .jobs/audit/ log & link PR in Work Notes
 ```
 
@@ -342,7 +342,7 @@ sequenceDiagram
 |---|---|---|---|
 | **Hybrid Poller + Egress (Recommended)** | Outbound FastMCP `get_enterprise_tickets` tool | 🔒 **Zero Inbound Ports Required** (100% Outbound HTTPS) | Air-gapped VPCs, enterprise SOC2 workflows, 24/7 autonomous maintenance |
 | **Direct Webhook Push** | Inbound HTTP POST `/api/card/inject` | ⚠️ Requires API Gateway / Reverse Proxy | Immediate real-time escalation on critical P1 incidents |
-| **CLI Dispatch** | `python -m src.cli.main inject --ticket INC0948201` | 🔒 Local execution | Developer ad-hoc ticket resolution |
+| **CLI Dispatch** | `python -m src.cli.main inject --ticket GH-#14 --platform GitHub` | 🔒 Local execution | Developer ad-hoc ticket & issue resolution |
 
 ---
 

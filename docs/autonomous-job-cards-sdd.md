@@ -219,8 +219,8 @@ spec:
       description: "Pytest unit tests"
   max_iterations: 5
   rag_query: "Enterprise Authentication Standard RFC hashlib and PyJWT"
-  external_ticket_id: "INC0948201" # Optional: ServiceNow, Salesforce, Jira ticket ID
-  source_platform: "ServiceNow"    # Optional: Source ticketing system
+  external_ticket_id: "GH-#14"     # Optional: GitHub Issue (GH-#14), ServiceNow (INC0948201), Salesforce, Jira
+  source_platform: "GitHub"        # Optional: Source platform (GitHub, ServiceNow, Salesforce, Jira, Pega)
   validation:
     test_commands:
       - "python tests/test_auth.py"
