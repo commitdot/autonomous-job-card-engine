@@ -31,6 +31,8 @@ import textwrap
 from typing import Dict, Any, List, Optional
 
 from .base import BaseLLMAdapter
+from ..ast_skeleton import ASTSkeletonizer
+from ..sandbox import extract_fault_frame
 
 try:
     import ollama as _ollama
@@ -72,6 +74,7 @@ class OllamaAdapter(BaseLLMAdapter):
         self.model = model or os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
         self.host  = host  or os.getenv("OLLAMA_HOST",  "http://localhost:11434")
         self._mcp  = mcp_client  # AJEMcpClient instance, or None
+        self._skeletonizer = ASTSkeletonizer(workspace_root=self.workspace_root)
 
         print(f"[OLLAMA] Adapter initialised — model: {self.model} @ {self.host}")
         if self._mcp:
@@ -88,18 +91,20 @@ class OllamaAdapter(BaseLLMAdapter):
         iteration: int,
         previous_errors: str = "",
         design_system: str = "",
+        execution_root: str = None,
     ) -> Dict[str, Any]:
         """
         Calls Ollama (Gemma 3) to generate or self-heal code for each deliverable,
-        then writes the results to disk inside workspace_root.
+        then writes the results to disk inside workspace_root or execution_root.
         """
         logs: List[str] = []
         created_files: List[str] = []
+        target_root = execution_root or self.workspace_root
 
         for deliv in deliverables:
             rel_path    = deliv.get("path", "")
             description = deliv.get("description", "")
-            abs_path    = os.path.join(self.workspace_root, rel_path)
+            abs_path    = os.path.join(target_root, rel_path)
 
             # Read existing content so the model can extend/diff it
             existing_content = ""
@@ -267,13 +272,14 @@ class OllamaAdapter(BaseLLMAdapter):
 
         self_heal_block = ""
         if iteration > 1 and previous_errors:
+            pruned_errors = extract_fault_frame(previous_errors, max_lines=30)
             self_heal_block = textwrap.dedent(f"""
-                ## Previous Validation Errors (Self-Healing Required)
-                The code you wrote in the previous iteration failed with these errors.
+                ## Previous Validation Errors (Self-Healing Required - Fault Localized)
+                The code you wrote in the previous iteration failed with these root-cause traceback frames.
                 You MUST fix ALL of them in your new response:
 
                 ```
-                {previous_errors.strip()}
+                {pruned_errors.strip()}
                 ```
             """).strip()
 

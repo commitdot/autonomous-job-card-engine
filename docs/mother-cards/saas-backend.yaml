@@ -29,6 +29,22 @@ spec:
       - "docker system prune"
       - "git push --force"
 
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - '(?i)v2\.0'
+      - '(?i)TODO:\s*urgent'
+      - '(?i)(ghp_|sk-|AKIA)[a-zA-Z0-9]{20,}'
+    enable_ast_skeletonization: true
+    context_budget_chars: 16000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 85.0
+    dual_pass_flakiness_check: true
+    composite_integration_commands:
+      - "python -m unittest discover -s tests"
+
   repository:
     local_path: "."
     remote_slug: ""

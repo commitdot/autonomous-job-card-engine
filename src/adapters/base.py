@@ -19,6 +19,7 @@ class BaseLLMAdapter(ABC):
         iteration: int,
         previous_errors: str = "",
         design_system: str = "",
+        execution_root: str = None,
     ) -> Dict[str, Any]:
         """
         Ask the LLM to fulfil a ChildCard's tactical objective.

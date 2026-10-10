@@ -33,16 +33,20 @@ class PrivacyGuard:
     def evaluate_routing_profile(self, files_accessed: List[str], base_mode: str) -> str:
         """
         Determines if the job must run locally because it accesses restricted paths.
-        Returns 'local' or 'cloud'.
+        Returns 'local' or 'cloud'. Normalizes Windows and POSIX path separators.
         """
         if base_mode == "local":
             return "local"
 
         for file_path in files_accessed:
+            if not file_path:
+                continue
+            normalized_file = file_path.replace("\\", "/")
             for restricted_pattern in self.restricted_paths:
+                normalized_pattern = restricted_pattern.replace("\\", "/")
                 # Convert glob pattern to regex
-                regex_pattern = re.escape(restricted_pattern).replace(r"\*", ".*")
-                if re.search(regex_pattern, file_path):
+                regex_pattern = re.escape(normalized_pattern).replace(r"\*", ".*")
+                if re.search(regex_pattern, normalized_file):
                     # Force local routing due to restriction policy matching
                     return "local"
                     

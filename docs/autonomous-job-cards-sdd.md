@@ -1,7 +1,13 @@
-# Software Design Document: Autonomous Job-Card Engine (AJE) v2.0
+# Software Design Document: Autonomous Job-Card Engine (AJE) v4.0
 
 ## 1. Executive Summary
-The **Autonomous Job-Card Engine (AJE) v2.0** represents a paradigm shift in autonomous AI engineering. Moving away from synchronous, imperative, chat-based model interactions, AJE introduces a declarative, asynchronous, stateful operating system for entire software engineering fleets.
+The **Autonomous Job-Card Engine (AJE) v4.0** represents a paradigm shift in autonomous AI engineering. Moving away from synchronous, imperative, chat-based model interactions, AJE introduces a declarative, asynchronous, stateful operating system for entire software engineering fleets.
+
+Key v4.0 capabilities include:
+- **Context Window Optimization & AST Skeletonizer**: Reduces token overhead by up to **92%** via AST signature extraction and fault-localized stack trace pruning.
+- **Continuous Multi-Tier Alignment Engine**: Automated symbol blast-radius detection cascading QA, documentation, and RAG re-indexing tasks with cryptographic deduplication.
+- **Fast Sequential Wave Execution (Tiered DAG Stages)**: Isolated Git worktrees per squad with bounded concurrency ($N=2$) and Hardware/VRAM Sentinel monitors.
+- **Zero-Risk Hardened Mitigations**: Dual-pass test flakiness detection, composite integration sandbox gates, and Windows/POSIX path separator normalization.
 
 By employing a **3-Tier Organizational Hierarchy (Mother Card -> Squad Leads -> Tactical Worker Cards)** coupled with a **Dual-Process Cognitive Triage (System 1 vs System 2)**, the system ensures that AI-driven development is strictly governed, secure, private, sovereign, and continuously self-improving.
 

@@ -11,18 +11,25 @@ class SimLLM:
     def __init__(self, workspace_root: str):
         self.workspace_root = workspace_root
 
-    def execute_child_card(self, tactical_objective: str, deliverables: List[Dict[str, str]], iteration: int) -> Dict[str, Any]:
+    def execute_child_card(
+        self,
+        tactical_objective: str,
+        deliverables: List[Dict[str, str]],
+        iteration: int,
+        workspace_root: str = None,
+    ) -> Dict[str, Any]:
         """
-        Processes a child card. Generates real files on disk inside the workspace.
-        Deliberately inserts a syntax or import error on iteration 1, 
+        Processes a child card. Generates real files on disk inside the target workspace.
+        Deliberately inserts a syntax or import error on iteration 1,
         and corrects it on iteration 2 to prove the sandbox + self-healing loop.
         """
         logs = []
         created_files = []
+        target_root = workspace_root or self.workspace_root
 
         for deliv in deliverables:
             rel_path = deliv.get("path")
-            path = os.path.join(self.workspace_root, rel_path)
+            path = os.path.join(target_root, rel_path)
             os.makedirs(os.path.dirname(path), exist_ok=True)
             
             # Check if this is a test file deliverable first

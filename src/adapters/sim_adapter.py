@@ -23,6 +23,7 @@ class SimAdapter(BaseLLMAdapter):
         iteration: int,
         previous_errors: str = "",
         design_system: str = "",
+        execution_root: str = None,
     ) -> Dict[str, Any]:
         # SimLLM is a deterministic stub and does not use design_system,
         # but we accept the param to satisfy the BaseLLMAdapter interface.
@@ -30,6 +31,7 @@ class SimAdapter(BaseLLMAdapter):
             tactical_objective=tactical_objective,
             deliverables=deliverables,
             iteration=iteration,
+            workspace_root=execution_root,
         )
 
     def generate_gap_analysis(self, current_repo_state: str) -> List[Dict[str, Any]]:

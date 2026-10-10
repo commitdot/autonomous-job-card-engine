@@ -16,7 +16,7 @@ import yaml
 import glob
 from pathlib import Path
 
-from ..models import MotherCard, ChildCard, RepositoryBinding
+from ..models import MotherCard, ChildCard, RepositoryBinding, GovernancePolicies
 from ..daemon import AutonomousJobCardEngine
 
 
@@ -68,7 +68,19 @@ def cmd_init(args):
             target_branch=target_branch
         ),
         rag_knowledge_paths=["docs", "rfc", "schemas"],
-        squad_leads=["backend", "security", "qa", "ui"]
+        squad_leads=["backend", "security", "qa", "ui"],
+        governance=GovernancePolicies(
+            enable_repo_regex_scan=True,
+            forbidden_patterns=[r"(?i)v2\.0", r"(?i)TODO:\s*urgent", r"(?i)(ghp_|sk-|AKIA)[a-zA-Z0-9]{20,}"],
+            enable_ast_skeletonization=True,
+            context_budget_chars=16000,
+            enable_alignment_cascades=True,
+            max_wave_depth=3,
+            max_concurrency=2,
+            vram_threshold_pct=85.0,
+            dual_pass_flakiness_check=True,
+            composite_integration_commands=["python -m unittest discover -s tests"]
+        )
     )
 
     mother_path = os.path.join(jobs_dir, "mother_card.yaml")

@@ -98,6 +98,67 @@ class LocalRAGIndexer:
         self._save()
         return len(self.chunks)
 
+    def reindex_file(self, rel_path: str) -> int:
+        """
+        Incrementally re-indexes a single file without rescanning entire workspace.
+        """
+        self.load()
+        norm_target = str(Path(rel_path)).replace("\\", "/")
+        # Filter out old chunks from this source
+        retained = [c for c in self.chunks if c.get("source", "").replace("\\", "/") != norm_target]
+
+        target_file = self.workspace_root / rel_path
+        new_chunks = []
+        if target_file.exists() and target_file.is_file():
+            try:
+                content = target_file.read_text(encoding="utf-8", errors="ignore")
+                paragraphs = [p.strip() for p in content.split("\n\n") if len(p.strip()) > 30]
+                for idx, para in enumerate(paragraphs):
+                    new_chunks.append({
+                        "source": norm_target,
+                        "chunk_id": f"{target_file.stem}_{idx}",
+                        "content": para,
+                        "tokens": self._tokenize(para),
+                    })
+            except Exception:
+                pass
+
+        all_raw = [{"tokens": c["tokens"] if "tokens" in c else self._tokenize(c["content"]), "chunk": c} for c in retained]
+        for c in new_chunks:
+            all_raw.append({"tokens": c["tokens"], "chunk": c})
+
+        if not all_raw:
+            self.chunks = []
+            self.idf = {}
+            self._save()
+            return 0
+
+        doc_count = len(all_raw)
+        doc_freq: Dict[str, int] = {}
+        for item in all_raw:
+            for t in set(item["tokens"]):
+                doc_freq[t] = doc_freq.get(t, 0) + 1
+
+        self.idf = {t: math.log((doc_count + 1) / (freq + 1)) + 1.0 for t, freq in doc_freq.items()}
+
+        self.chunks = []
+        for item in all_raw:
+            c = item["chunk"]
+            tokens = item["tokens"]
+            tf = self._compute_tf(tokens)
+            tfidf = {t: tf[t] * self.idf.get(t, 1.0) for t in tf}
+            norm = math.sqrt(sum(v * v for v in tfidf.values())) or 1.0
+            norm_tfidf = {t: v / norm for t, v in tfidf.items()}
+            self.chunks.append({
+                "source": c.get("source", norm_target),
+                "chunk_id": c.get("chunk_id", "chunk"),
+                "content": c.get("content", ""),
+                "vector": norm_tfidf,
+            })
+
+        self._save()
+        return len(new_chunks)
+
     def _save(self):
         payload = {
             "idf": self.idf,

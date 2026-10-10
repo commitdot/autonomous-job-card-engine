@@ -165,7 +165,7 @@ def run_e2e_test():
     for idx, entry in enumerate(audit_records):
         print(f"  [{idx+1}] {entry['timestamp']} | {entry['action'].upper()} | {entry['details']}")
 
-    print("\n[SUCCESS] ALL TESTS PASSED! The Autonomous Job-Card Engine (AJE) v2.0 concept is 100% executable and validated. [SUCCESS]")
+    print("\n[SUCCESS] ALL TESTS PASSED! The Autonomous Job-Card Engine (AJE) v4.0 architecture is 100% executable and validated. [SUCCESS]")
 
 if __name__ == "__main__":
     run_e2e_test()

@@ -15,6 +15,23 @@ class RepositoryBinding:
 
 
 @dataclass
+class GovernancePolicies:
+    """
+    Fleet Governance & Quality Policies enforced autonomously by the Mother Card.
+    """
+    enable_repo_regex_scan: bool = True
+    forbidden_patterns: List[str] = field(default_factory=lambda: [r"(?i)v2\.0", r"(?i)TODO:\s*urgent", r"(?i)(ghp_|sk-|AKIA)[a-zA-Z0-9]{20,}"])
+    enable_ast_skeletonization: bool = True
+    context_budget_chars: int = 16000
+    enable_alignment_cascades: bool = True
+    max_wave_depth: int = 3
+    max_concurrency: int = 2
+    vram_threshold_pct: float = 85.0
+    dual_pass_flakiness_check: bool = True
+    composite_integration_commands: List[str] = field(default_factory=list)
+
+
+@dataclass
 class MotherCard:
     id: str
     name: str
@@ -34,6 +51,9 @@ class MotherCard:
 
     # 3-Tier Hierarchy: Registered Department Squads
     squad_leads: List[str] = field(default_factory=lambda: ["backend", "security", "qa", "ui"])
+
+    # Quality & Fleet Governance Policies
+    governance: GovernancePolicies = field(default_factory=GovernancePolicies)
 
     # Live engine status
     family_health: str = "Healthy"
@@ -60,6 +80,20 @@ class MotherCard:
             auto_merge_pr=repo_data.get("auto_merge_pr", False),
         )
 
+        gov_data = spec.get("governance_policies", {})
+        governance = GovernancePolicies(
+            enable_repo_regex_scan=gov_data.get("enable_repo_regex_scan", True),
+            forbidden_patterns=gov_data.get("forbidden_patterns", [r"(?i)v2\.0", r"(?i)TODO:\s*urgent", r"(?i)(ghp_|sk-|AKIA)[a-zA-Z0-9]{20,}"]),
+            enable_ast_skeletonization=gov_data.get("enable_ast_skeletonization", True),
+            context_budget_chars=gov_data.get("context_budget_chars", 16000),
+            enable_alignment_cascades=gov_data.get("enable_alignment_cascades", True),
+            max_wave_depth=gov_data.get("max_wave_depth", 3),
+            max_concurrency=gov_data.get("max_concurrency", 2),
+            vram_threshold_pct=float(gov_data.get("vram_threshold_pct", 85.0)),
+            dual_pass_flakiness_check=gov_data.get("dual_pass_flakiness_check", True),
+            composite_integration_commands=gov_data.get("composite_integration_commands", []),
+        )
+
         return cls(
             id=metadata.get("id", "mother-default"),
             name=metadata.get("name", "Autonomous Mother Guardian"),
@@ -73,6 +107,7 @@ class MotherCard:
             repo=repo_binding,
             rag_knowledge_paths=spec.get("rag_knowledge_paths", ["docs", "rfc", "schemas"]),
             squad_leads=spec.get("squad_leads", ["backend", "security", "qa", "ui"]),
+            governance=governance,
             family_health=status.get("family_health", "Healthy"),
             total_spend_usd=status.get("total_spend_usd", 0.0),
             active_children=status.get("active_children", []),
@@ -97,6 +132,7 @@ class MotherCard:
                     "restricted_paths": self.restricted_paths,
                     "banned_commands": self.banned_commands
                 },
+                "governance_policies": asdict(self.governance),
                 "repository": asdict(self.repo),
                 "rag_knowledge_paths": self.rag_knowledge_paths,
                 "squad_leads": self.squad_leads,
@@ -185,6 +221,10 @@ class ChildCard:
     rag_query: Optional[str] = None
     external_ticket_id: Optional[str] = None
     source_platform: Optional[str] = None
+    depends_on: List[str] = field(default_factory=list)
+    wave_depth: int = 1
+    task_fingerprint: str = ""
+    worktree_path: str = ""
     
     # Engine status
     phase: str = "Pending"  # Pending, Running, Validating, Completed, Failed
@@ -194,6 +234,8 @@ class ChildCard:
     logs: List[str] = field(default_factory=list)
     git_branch: str = ""
 
+    _source_path: str = ""
+
     @classmethod
     def from_yaml(cls, path: str) -> "ChildCard":
         with open(path, 'r', encoding='utf-8') as f:
@@ -201,7 +243,7 @@ class ChildCard:
         spec = data.get("spec", {})
         metadata = data.get("metadata", {})
         status = data.get("status", {})
-        return cls(
+        card = cls(
             id=metadata.get("id"),
             parent_mother_id=metadata.get("parent_mother_id"),
             name=metadata.get("name"),
@@ -212,6 +254,10 @@ class ChildCard:
             rag_query=spec.get("rag_query"),
             external_ticket_id=spec.get("external_ticket_id"),
             source_platform=spec.get("source_platform"),
+            depends_on=spec.get("depends_on", []),
+            wave_depth=spec.get("wave_depth", 1),
+            task_fingerprint=metadata.get("task_fingerprint", ""),
+            worktree_path=status.get("worktree_path", ""),
             phase=status.get("phase", "Pending"),
             current_iteration=status.get("current_iteration", 0),
             max_iterations=spec.get("max_iterations", 5),
@@ -219,15 +265,19 @@ class ChildCard:
             logs=status.get("logs", []),
             git_branch=status.get("git_branch", "")
         )
+        card._source_path = os.path.abspath(path)
+        return card
 
-    def to_yaml(self, path: str):
+    def to_yaml(self, path: str = None):
+        target_path = path or self._source_path
         data = {
             "apiVersion": "agent.autonomous.io/v1alpha1",
             "kind": "ChildCard",
             "metadata": {
                 "id": self.id,
                 "parent_mother_id": self.parent_mother_id,
-                "name": self.name
+                "name": self.name,
+                "task_fingerprint": self.task_fingerprint,
             },
             "spec": {
                 "parent_squad_id": self.parent_squad_id,
@@ -237,6 +287,8 @@ class ChildCard:
                 "rag_query": self.rag_query,
                 "external_ticket_id": self.external_ticket_id,
                 "source_platform": self.source_platform,
+                "depends_on": self.depends_on,
+                "wave_depth": self.wave_depth,
                 "validation": {
                     "test_commands": self.validation_commands
                 }
@@ -246,9 +298,10 @@ class ChildCard:
                 "current_iteration": self.current_iteration,
                 "execution_profile_assigned": self.execution_profile_assigned,
                 "logs": self.logs,
-                "git_branch": self.git_branch
+                "git_branch": self.git_branch,
+                "worktree_path": self.worktree_path,
             }
         }
-        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as f:
+        os.makedirs(os.path.dirname(os.path.abspath(target_path)), exist_ok=True)
+        with open(target_path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(data, f, default_flow_style=False)
