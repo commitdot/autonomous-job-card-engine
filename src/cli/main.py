@@ -18,11 +18,14 @@ from pathlib import Path
 
 from ..models import MotherCard, ChildCard, RepositoryBinding, GovernancePolicies
 from ..daemon import AutonomousJobCardEngine
+from ..security.attestation import QuarantineVault, CardAttestationEngine
+from ..security.sast_scanner import ASTSecurityScanner
+from ..security.audit_chain import AuditChain
 
 
 def cmd_init(args):
     print("=" * 70)
-    print("  🤖 AUTONOMOUS JOB-CARD ENGINE (AJE) — PROJECT SETUP WIZARD")
+    print("  [AJE] AUTONOMOUS JOB-CARD ENGINE (AJE) — PROJECT SETUP WIZARD")
     print("=" * 70)
 
     workspace = os.path.abspath(args.workspace or ".")
@@ -39,11 +42,11 @@ def cmd_init(args):
     target_branch = input("  Target Base Branch [main]: ").strip() or "main"
 
     print("\n[3/4] Select Mother Card Archetype:")
-    print("  1) 🚀 SaaS Backend & API Modernizer (FastAPI / Carbon Design)")
-    print("  2) 🛡️  Enterprise Security & Compliance Guardian (Air-Gapped Local)")
-    print("  3) 🌐 Autonomous 24/7 Open-Source Maintainer (Public Repo / Material 3)")
-    print("  4) 🎨 Frontend & Design System Enforcer (React / Tailwind)")
-    print("  5) 🛠️  Custom Blank Canvas")
+    print("  1) SaaS Backend & API Modernizer (FastAPI / Carbon Design)")
+    print("  2) Enterprise Security & Compliance Guardian (Air-Gapped Local)")
+    print("  3) Autonomous 24/7 Open-Source Maintainer (Public Repo / Material 3)")
+    print("  4) Frontend & Design System Enforcer (React / Tailwind)")
+    print("  5) Custom Blank Canvas")
     choice = input("  Choose archetype [1]: ").strip() or "1"
 
     archetype_map = {
@@ -160,7 +163,7 @@ def cmd_inject(args):
     
     card_path = os.path.join(jobs_dir, f"child_{cid}.yaml")
     card.to_yaml(card_path)
-    print(f"\n✔ Successfully queued new Worker Card: {card.name} [ID: {card.id}]")
+    print(f"\n[OK] Successfully queued new Worker Card: {card.name} [ID: {card.id}]")
     print(f"  Saved to: {card_path}")
 
 
@@ -173,7 +176,7 @@ def cmd_start(args):
         cmd_init(args)
 
     engine = AutonomousJobCardEngine(workspace_root=workspace)
-    print(f"\n🚀 Launching Autonomous Job-Card Engine on workspace: {workspace}")
+    print(f"\n[RUN] Launching Autonomous Job-Card Engine on workspace: {workspace}")
     engine.run_one_cycle(mother_path)
 
 
@@ -195,9 +198,125 @@ def cmd_link(args):
         mother.repo.target_branch = target_branch
 
     mother.to_yaml(mother_path)
-    print(f"✔ Updated repository bindings for {mother.name}")
+    print(f"[OK] Updated repository bindings for {mother.name}")
     print(f"  Remote: {mother.repo.remote_slug}")
     print(f"  Branch: {mother.repo.target_branch}")
+
+
+def cmd_quarantine(args):
+    workspace = os.path.abspath(args.workspace or ".")
+    vault = QuarantineVault(workspace_root=workspace)
+    action = args.action or "list"
+
+    if action == "list":
+        records = vault.list_quarantined_cards()
+        print("=" * 70)
+        print("  [VAULT] AJE SAFE QUARANTINE VAULT - ISOLATED CARDS")
+        print("=" * 70)
+        if not records:
+            print("  No quarantined cards found. All task cards are clean and authorized.")
+            return
+
+        print(f"  Found {len(records)} quarantined task card(s):\n")
+        for r in records:
+            print(f"  * ID: [{r.quarantine_id}] | Card: {r.card_id} | Severity: {r.severity}")
+            print(f"    Reason: {r.reason}")
+            print(f"    Timestamp: {r.timestamp} | Payload SHA-256: {r.sha256_payload_hash[:16]}...")
+            print(f"    Meta: {r.meta_path}")
+            print("-" * 70)
+
+    elif action == "inspect":
+        target_id = args.target_id
+        if not target_id:
+            print("Error: Specify card/quarantine ID to inspect: aje quarantine inspect <id>")
+            return
+        res = vault.inspect_quarantined_card(target_id)
+        if not res:
+            print(f"No quarantined card found matching '{target_id}'.")
+            return
+        payload, record = res
+        print(f"Quarantine Record: {record.quarantine_id}")
+        print(f"Card ID: {record.card_id}")
+        print(f"Reason: {record.reason}")
+        print(f"Severity: {record.severity}")
+        print(f"Timestamp: {record.timestamp}")
+        print(f"Remediation: {record.remediation}")
+        print("\nPayload:")
+        import json
+        print(json.dumps(payload, indent=2))
+
+    elif action == "release":
+        target_id = args.target_id
+        if not target_id:
+            print("Error: Specify quarantine ID to release: aje quarantine release <id>")
+            return
+        released_path = vault.release_card(target_id, target_dir=".jobs")
+        if released_path:
+            print(f"[OK] Card successfully released and re-signed into active queue: {released_path}")
+        else:
+            print(f"Failed to release quarantined card '{target_id}'.")
+
+    elif action == "purge":
+        target_id = args.target_id
+        if not target_id:
+            print("Error: Specify quarantine ID to purge: aje quarantine purge <id>")
+            return
+        if vault.purge_quarantine(target_id):
+            print(f"[OK] Quarantined record '{target_id}' permanently purged.")
+        else:
+            print(f"Failed to purge record '{target_id}'.")
+
+
+def cmd_audit(args):
+    workspace = os.path.abspath(args.workspace or ".")
+    chain = AuditChain(workspace_root=workspace)
+    action = args.action or "verify"
+
+    if action == "verify":
+        is_valid, err = chain.verify_integrity()
+        print("=" * 70)
+        print("  [AUDIT] AJE CRYPTOGRAPHIC AUDIT CHAIN INTEGRITY CHECK")
+        print("=" * 70)
+        if is_valid:
+            latest = chain.get_latest_block()
+            block_count = (latest.index + 1) if latest else 0
+            print(f"  [OK] Audit Ledger Integrity Verified! Total cryptographically linked blocks: {block_count}")
+            print(f"  Tip Hash: {latest.block_hash if latest else 'N/A'}")
+        else:
+            print(f"  [ERROR] Audit Ledger Cryptographic Tamper Detected: {err}")
+
+    elif action == "list":
+        blocks = chain.get_all_blocks()
+        print(f"Total Audit Blocks: {len(blocks)}\n")
+        for b in blocks[-10:]:
+            print(f"Block #{b.index} [{b.event_type}] by {b.actor}")
+            print(f"  Hash: {b.block_hash[:20]}... | Prev: {b.prev_hash[:20]}...")
+            print(f"  Payload: {b.payload}")
+            print()
+
+
+def cmd_scan(args):
+    workspace = os.path.abspath(args.workspace or ".")
+    target_dir = os.path.abspath(args.path or workspace)
+    print("=" * 70)
+    print("  [SAST] AJE AST SAST SECURITY & SUPPLY-CHAIN SCANNER")
+    print("=" * 70)
+    print(f"Scanning target: {target_dir}...")
+    scanner = ASTSecurityScanner()
+    res = scanner.scan_directory(target_dir)
+
+    print(f"Scanned files: {res.scanned_files_count}")
+    print(f"Violations detected: {res.violations_count}")
+    print(f"Highest Risk: {res.highest_risk.value}")
+    print(f"Security Gate Passed: {'PASSED' if res.passed else 'FAILED'}")
+
+    if res.findings:
+        print("\nFindings:")
+        for f in res.findings:
+            print(f"  [{f.risk_level.value}] {f.rule_id} ({f.cwe}) in {f.file_path}:{f.line_number}")
+            print(f"    {f.message}")
+            if f.snippet:
+                print(f"    Snippet: {f.snippet}")
 
 
 def main():
@@ -234,6 +353,22 @@ def main():
     p_link.add_argument("--remote", help="GitHub repo slug (owner/repo)")
     p_link.add_argument("--branch", help="Target base branch")
     p_link.set_defaults(func=cmd_link)
+
+    # quarantine
+    p_quarantine = subparsers.add_parser("quarantine", help="Manage isolated and quarantined task cards")
+    p_quarantine.add_argument("action", nargs="?", default="list", choices=["list", "inspect", "release", "purge"])
+    p_quarantine.add_argument("target_id", nargs="?", default=None, help="Quarantine ID or Card ID")
+    p_quarantine.set_defaults(func=cmd_quarantine)
+
+    # audit
+    p_audit = subparsers.add_parser("audit", help="Verify or inspect cryptographic audit chain ledger")
+    p_audit.add_argument("action", nargs="?", default="verify", choices=["verify", "list"])
+    p_audit.set_defaults(func=cmd_audit)
+
+    # scan
+    p_scan = subparsers.add_parser("scan", help="Run AST SAST and supply-chain security scan")
+    p_scan.add_argument("path", nargs="?", default=None, help="Target directory to scan")
+    p_scan.set_defaults(func=cmd_scan)
 
     args = parser.parse_args()
     if not args.command:

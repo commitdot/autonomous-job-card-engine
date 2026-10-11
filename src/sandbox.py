@@ -103,9 +103,11 @@ class SandboxRunner:
             }
 
         try:
+            import shlex
+            args = shlex.split(cmd, posix=(os.name != "nt")) if isinstance(cmd, str) else cmd
             result = subprocess.run(
-                cmd,
-                shell=True,
+                args,
+                shell=False,
                 cwd=cwd,
                 capture_output=True,
                 text=True,

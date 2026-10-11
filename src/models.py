@@ -29,6 +29,11 @@ class GovernancePolicies:
     vram_threshold_pct: float = 85.0
     dual_pass_flakiness_check: bool = True
     composite_integration_commands: List[str] = field(default_factory=list)
+    enable_attestation: bool = False
+    enable_injection_guard: bool = True
+    enable_sast_scan: bool = True
+    enable_containment_jail: bool = True
+    enable_audit_chain: bool = True
 
 
 @dataclass
@@ -92,6 +97,11 @@ class MotherCard:
             vram_threshold_pct=float(gov_data.get("vram_threshold_pct", 85.0)),
             dual_pass_flakiness_check=gov_data.get("dual_pass_flakiness_check", True),
             composite_integration_commands=gov_data.get("composite_integration_commands", []),
+            enable_attestation=gov_data.get("enable_attestation", False),
+            enable_injection_guard=gov_data.get("enable_injection_guard", True),
+            enable_sast_scan=gov_data.get("enable_sast_scan", True),
+            enable_containment_jail=gov_data.get("enable_containment_jail", True),
+            enable_audit_chain=gov_data.get("enable_audit_chain", True),
         )
 
         return cls(
@@ -225,6 +235,7 @@ class ChildCard:
     wave_depth: int = 1
     task_fingerprint: str = ""
     worktree_path: str = ""
+    signature: Optional[Dict[str, Any]] = None
     
     # Engine status
     phase: str = "Pending"  # Pending, Running, Validating, Completed, Failed
@@ -258,6 +269,7 @@ class ChildCard:
             wave_depth=spec.get("wave_depth", 1),
             task_fingerprint=metadata.get("task_fingerprint", ""),
             worktree_path=status.get("worktree_path", ""),
+            signature=metadata.get("signature"),
             phase=status.get("phase", "Pending"),
             current_iteration=status.get("current_iteration", 0),
             max_iterations=spec.get("max_iterations", 5),
@@ -278,6 +290,7 @@ class ChildCard:
                 "parent_mother_id": self.parent_mother_id,
                 "name": self.name,
                 "task_fingerprint": self.task_fingerprint,
+                "signature": self.signature,
             },
             "spec": {
                 "parent_squad_id": self.parent_squad_id,

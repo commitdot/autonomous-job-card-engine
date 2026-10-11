@@ -14,6 +14,11 @@ from .rag.retriever import LocalRAGRetriever
 from .ast_skeleton import ASTSkeletonizer
 from .alignment_engine import AlignmentEngine
 from .squad_executor import SquadDAGScheduler, SquadWaveExecutor
+from .security.attestation import CardAttestationEngine, QuarantineVault
+from .security.injection_guard import InboundInjectionGuard, InjectionRiskLevel
+from .security.sast_scanner import ASTSecurityScanner, SASTRiskLevel
+from .security.containment import WorktreeJailer
+from .security.audit_chain import AuditChain
 
 
 class AutonomousJobCardEngine:
@@ -37,13 +42,22 @@ class AutonomousJobCardEngine:
         self.skeletonizer = ASTSkeletonizer(workspace_root=self.workspace_root)
         self.alignment_engine = AlignmentEngine(workspace_root=self.workspace_root)
 
+        # Security Matrix Subsystem
+        self.attestation_engine = CardAttestationEngine()
+        self.quarantine_vault = QuarantineVault(workspace_root=self.workspace_root)
+        self.injection_guard = InboundInjectionGuard()
+        self.sast_scanner = ASTSecurityScanner()
+        self.worktree_jailer = WorktreeJailer(jail_root=self.workspace_root)
+        self.audit_chain = AuditChain(workspace_root=self.workspace_root)
+
         # Initialised per-cycle from MotherCard config
         self.privacy_guard = None
         self.sandbox = None
 
     def write_audit_log(self, child_id: str, action_type: str, details: str, meta: Dict[str, Any] = None):
         """
-        Maintains an immutable forensic audit log for every action executed by the autonomous engine.
+        Maintains an immutable forensic audit log and cryptographically linked SHA-256 block
+        for every action executed by the autonomous engine.
         """
         audit_file = os.path.join(self.audit_dir, f"audit_{child_id}.json")
         entry = {
@@ -65,6 +79,16 @@ class AutonomousJobCardEngine:
         logs.append(entry)
         with open(audit_file, 'w', encoding='utf-8') as f:
             json.dump(logs, f, indent=2)
+
+        # Append to cryptographic tamper-evident audit ledger
+        try:
+            self.audit_chain.append_event(
+                event_type=action_type.upper(),
+                actor="EngineDaemon",
+                payload={"child_id": child_id, "details": details, "meta": meta or {}}
+            )
+        except Exception:
+            pass
 
     def index_rag_knowledge(self, paths: List[str]):
         """Indexes internal RFCs, markdown docs, and schemas into local RAG store."""
@@ -371,13 +395,92 @@ class AutonomousJobCardEngine:
         if mother.rag_knowledge_paths:
             self.index_rag_knowledge(mother.rag_knowledge_paths)
 
-        # Collect pending Child Cards
+        # Collect pending Child Cards with SecOps Defense Matrix verification
+        gov = getattr(mother, "governance", None)
         pending_children: List[ChildCard] = []
         for file_name in sorted(os.listdir(self.jobs_dir)):
-            if file_name.startswith("child_") and file_name.endswith(".yaml"):
+            if file_name.startswith("child_") and file_name.endswith((".yaml", ".yml")):
                 child_path = os.path.join(self.jobs_dir, file_name)
-                child = ChildCard.from_yaml(child_path)
+                try:
+                    child = ChildCard.from_yaml(child_path)
+                except Exception:
+                    continue
+
                 if child.phase not in ["Completed", "Failed"]:
+                    # 1. Inbound Prompt Injection & Adversarial Payload Scan
+                    if gov and gov.enable_injection_guard:
+                        card_payload = {
+                            "name": child.name,
+                            "tactical_objective": child.tactical_objective,
+                            "deliverables": [d.get("path", "") for d in child.deliverables],
+                            "test_commands": child.validation_commands,
+                            "rag_query": child.rag_query or "",
+                        }
+                        inj_result = self.injection_guard.scan_card(card_payload)
+                        if not inj_result.is_safe and inj_result.risk_level in (InjectionRiskLevel.CRITICAL, InjectionRiskLevel.HIGH):
+                            print(f"[SECURITY] [QUARANTINE] Adversarial prompt injection detected in '{child.name}' ({child.id}). Quarantining task.")
+                            record = self.quarantine_vault.quarantine_card(
+                                card_data_or_path=child_path,
+                                reason=f"Inbound Adversarial Prompt Injection ({inj_result.risk_level.value})",
+                                severity=inj_result.risk_level.value,
+                                details={"findings": [f.to_dict() if hasattr(f, "to_dict") else str(f) for f in inj_result.findings]},
+                                source_file_path=child_path,
+                            )
+                            self.audit_chain.append_event(
+                                event_type="CARD_QUARANTINED",
+                                actor="InboundInjectionGuard",
+                                payload={"card_id": child.id, "quarantine_id": record.quarantine_id, "reason": record.reason}
+                            )
+                            continue
+
+                    # 2. Cryptographic Attestation Verification
+                    if gov and gov.enable_attestation:
+                        card_dict = {
+                            "id": child.id,
+                            "title": child.name,
+                            "squad": child.parent_squad_id,
+                            "target_files": [d.get("path", "") for d in child.deliverables],
+                            "validation_criteria": child.validation_commands,
+                            "signature": child.signature,
+                        }
+                        is_valid, reason = self.attestation_engine.verify_card(card_dict, require_signature=True)
+                        if not is_valid:
+                            print(f"[SECURITY] [QUARANTINE] Cryptographic attestation failed for '{child.name}' ({child.id}): {reason}. Quarantining task.")
+                            record = self.quarantine_vault.quarantine_card(
+                                card_data_or_path=child_path,
+                                reason=f"Cryptographic Task Attestation Failed: {reason}",
+                                severity="HIGH",
+                                details={"error": reason, "signature": child.signature},
+                                source_file_path=child_path,
+                            )
+                            self.audit_chain.append_event(
+                                event_type="CARD_QUARANTINED",
+                                actor="CardAttestationEngine",
+                                payload={"card_id": child.id, "quarantine_id": record.quarantine_id, "reason": record.reason}
+                            )
+                            continue
+
+                    # 3. Worktree Path Containment Verification
+                    if gov and gov.enable_containment_jail:
+                        all_contained, violations = self.worktree_jailer.validate_card_file_targets({
+                            "target_files": [d.get("path", "") for d in child.deliverables]
+                        })
+                        if not all_contained:
+                            print(f"[SECURITY] [QUARANTINE] Path containment violation in '{child.name}' ({child.id}). Quarantining task.")
+                            record = self.quarantine_vault.quarantine_card(
+                                card_data_or_path=child_path,
+                                reason="Path Containment Violation (Attempted boundary escape)",
+                                severity="CRITICAL",
+                                details={"violations": violations},
+                                source_file_path=child_path,
+                            )
+                            self.audit_chain.append_event(
+                                event_type="CARD_QUARANTINED",
+                                actor="WorktreeJailer",
+                                payload={"card_id": child.id, "quarantine_id": record.quarantine_id, "violations": violations}
+                            )
+                            continue
+
                     pending_children.append(child)
 
         if not pending_children:
