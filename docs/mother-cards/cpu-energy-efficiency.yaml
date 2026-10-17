@@ -1,0 +1,82 @@
+# ============================================================================
+# AJE Mother Card — CPU Performance-per-Watt & Green Compute Engineer
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-cpu-energy-efficiency
+  name: CPU Performance-per-Watt & Green Datacenter Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Maximize energy efficiency (Performance per Watt) and minimize Joules-per-inference.
+    Profile power consumption at hardware register level using Intel/AMD RAPL, ACPI telemetry,
+    and Linux energy counters. Implement dynamic voltage and frequency scaling (DVFS),
+    cgroup power limits, core unparking, and heterogeneous P-core/E-core load balancing.
+    Ensure server workloads operate within strict TDP budgets while eliminating thermal throttling.
+
+  design_system: "Linux perf / RAPL sysfs / Python Energy Telemetry / Prometheus"
+
+  safety_policies:
+    privacy_mode: local
+    restricted_paths:
+      - "**/.env*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf /"
+      - "cpupower frequency-set -u 100MHz" # Avoid crippling CPU clocks accidentally
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+    enable_ast_skeletonization: false
+    context_budget_chars: 18000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 1
+    vram_threshold_pct: 0.0
+    dual_pass_flakiness_check: false
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_energy_profiling.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/green-cpu-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/rapl_power_measurement"
+    - "docs/dvfs_governor_tuning"
+    - "docs/tdp_power_capping"
+
+  squad_leads:
+    - rapl-profiler       # Collects power in Watts/Joules via /sys/class/powercap/intel-rapl
+    - dvfs-governor-lead  # Tunes schedutil / performance / powersave governors and EPP energy bias
+    - heterocore-balancer # Pins latency-critical threads to P-cores and background tasks to E-cores
+    - thermal-watchdog    # Detects TCC activation, PROCHOT signals, and frequency throttling drops
+
+  global_context:
+    target_processors:
+      - "Intel Xeon 6 (Sierra Forest E-core & Granite Rapids P-core)"
+      - "AMD EPYC 9004/9005 (Zen 4c / Zen 5c high-density cloud CPUs)"
+      - "Intel Core Ultra (Meteor Lake / Arrow Lake with NPU)"
+    telemetry_interfaces:
+      - "Intel/AMD RAPL (Running Average Power Limit)"
+      - "Linux perf_events (power/energy-pkg/, power/energy-ram/)"
+      - "Turbostat & hwmon sysfs"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

@@ -79,16 +79,49 @@ flowchart TB
 
 ---
 
-## 📦 Pre-Populated Mother Card Archetypes
+## 📦 Comprehensive Mother Card Fleet (20 Production Archetypes)
 
-AJE comes with production-ready, pre-configured Mother Card templates located in [`docs/mother-cards/`](docs/mother-cards/):
+AJE comes with **20 production-ready Mother Card blueprints** organized across infrastructure, silicon architectures, career acceleration, and governance in [`docs/mother-cards/`](docs/mother-cards/):
 
-| Template | Focus | Squad Leads | Default Design System |
+### 1. Core Engineering & Fleet Governance
+| Blueprint | Focus & Architecture | Privacy Mode | Squad Leads |
 |---|---|---|---|
-| **[`saas-backend.yaml`](docs/mother-cards/saas-backend.yaml)** | FastAPI, REST/OpenAPI, Redis rate limiting, SQLAlchemy, robust auth | Backend, Security, QA, DevOps | IBM Carbon Design System |
-| **[`enterprise-security.yaml`](docs/mother-cards/enterprise-security.yaml)** | SOC2 compliance, CVE remediation, air-gapped local model routing | Security, Audit, QA | Air-Gapped / Strict |
-| **[`opensource-maintainer.yaml`](docs/mother-cards/opensource-maintainer.yaml)** | Public GitHub triage, PR review feedback, SemVer 2.0, CHANGELOG sync | Issue Triage, Release Eng, Docs | Google Material Design 3 |
-| **[`frontend-design.yaml`](docs/mother-cards/frontend-design.yaml)** | React/Next.js, Tailwind, WCAG 2.1 AA accessibility, component tokens | UI, Component Builder, QA | IBM Carbon Design System |
+| **[`saas-backend.yaml`](docs/mother-cards/saas-backend.yaml)** | Production FastAPI, typed endpoints, pytest (>85%), Redis rate-limiting | `hybrid` | Backend, Security, QA, DevOps |
+| **[`enterprise-security.yaml`](docs/mother-cards/enterprise-security.yaml)** | Zero-trust least privilege, Argon2id, OWASP Top-10, strict CVE defense | `hybrid` | Security, Audit, QA |
+| **[`frontend-design.yaml`](docs/mother-cards/frontend-design.yaml)** | IBM Carbon components, WCAG 2.1 AA accessibility, React, Vitest | `hybrid` | UI, QA, Accessibility |
+| **[`opensource-maintainer.yaml`](docs/mother-cards/opensource-maintainer.yaml)** | 24/7 issue triage, automated PR reviews, SemVer, CI compatibility matrix | `cloud` | Triage, Docs, Release |
+| **[`privacy-governance.yaml`](docs/mother-cards/privacy-governance.yaml)** | GDPR/HIPAA/CCPA zero-trust governance, **System 1 heuristic policy fast-path** | `local` | Privacy Officer, Data Governance, Compliance, Redaction |
+
+### 2. Career Progression & Personal Automation
+| Blueprint | Focus & Architecture | Privacy Mode | Squad Leads |
+|---|---|---|---|
+| **[`role-mastery-upskilling.yaml`](docs/mother-cards/role-mastery-upskilling.yaml)** | Routine toil automation, emerging tool sandbox POCs, Staff Engineer rubric | `hybrid` | Workflow Accelerator, Tool Discovery, Role Analyst, Coach |
+| **[`support-to-ai-engineer.yaml`](docs/mother-cards/support-to-ai-engineer.yaml)** | System Support $\rightarrow$ AI Engineer bridge: RAG, Ollama local serving, evals | `local` | AI Foundations, RAG Engineer, LLMOps, Agent Guardrails |
+| **[`job-hunting.yaml`](docs/mother-cards/job-hunting.yaml)** | Autonomous ATS resume tailoring, cover letter generator, application ledger | `hybrid` | Resume Tailor, Cover Letter, Application Tracker, Interview Prep |
+| **[`pc-automation.yaml`](docs/mother-cards/pc-automation.yaml)** | Non-destructive OS maintenance, workspace hygiene, dotfiles, path containment | `local` | SysAdmin, Maintenance, Security, Desktop Tooling |
+
+### 3. NVIDIA AI & Silicon Architectures
+| Blueprint | Focus & Architecture | Privacy Mode | Squad Leads |
+|---|---|---|---|
+| **[`nvidia-tensorrt-llm.yaml`](docs/mother-cards/nvidia-tensorrt-llm.yaml)** | TensorRT-LLM engine plans, FP8/FP4 quantization, Triton, PagedAttention | `hybrid` | TRT Compiler, Quantization Lab, Triton Deployer, Latency Profiler |
+| **[`nvidia-cuda-kernel.yaml`](docs/mother-cards/nvidia-cuda-kernel.yaml)** | Modern CUDA C++20 / Triton kernels, CUTLASS Tensor Cores, memory coalescing | `local` | Kernel Author, Parity Verifier, Nsight Optimizer, PyBind Bridge |
+| **[`nvidia-nemo-megatron.yaml`](docs/mother-cards/nvidia-nemo-megatron.yaml)** | 3D Parallelism (TP/PP/DP/SP), NeMo 2.0, Megatron-LM multi-node pre-training | `hybrid` | Parallelism Architect, NCCL Tuner, Checkpoint Mgr, Slurm Lead |
+| **[`nvidia-drive-isaac.yaml`](docs/mother-cards/nvidia-drive-isaac.yaml)** | Omniverse Isaac Sim OpenUSD simulation, ROS2 Humble, real-time perception | `local` | Perception Lead, Sim Generator, ROS2 Pipeline, Safety Validator |
+| **[`nvidia-fae-datacenter.yaml`](docs/mother-cards/nvidia-fae-datacenter.yaml)** | DGX/NVL72 datacenter deployments, InfiniBand/RoCEv2, DCGM, BMC Redfish | `hybrid` | Datacenter Architect, Hardware Triage, Network Specialist, Enablement |
+
+### 4. AMD ROCm & Heterogeneous AI Stack
+| Blueprint | Focus & Architecture | Privacy Mode | Squad Leads |
+|---|---|---|---|
+| **[`amd-rocm-kernel.yaml`](docs/mother-cards/amd-rocm-kernel.yaml)** | HIP C++, Composable Kernel (CK), CDNA3 MFMA Matrix Cores, LDS bank tuning | `local` | HIP Kernel Author, Wavefront Tuner, MIOpen Lead, rocprof Analyst |
+| **[`amd-triton-compiler.yaml`](docs/mother-cards/amd-triton-compiler.yaml)** | OpenAI Triton on ROCm, PyTorch TorchInductor, vLLM on MI300X 192GB HBM3 | `hybrid` | Triton Backend, vLLM ROCm Lead, TorchDynamo Lead, Evaluator |
+| **[`amd-instinct-solutions.yaml`](docs/mother-cards/amd-instinct-solutions.yaml)** | MI300X 8-OAM nodes, Infinity Fabric (xGMI 896GB/s), RCCL tuning, RVS tests | `hybrid` | Cluster Architect, RCCL Tuner, RVS Diagnostician, Migration Lead |
+
+### 5. CPU & Energy-Efficient Computing
+| Blueprint | Focus & Architecture | Privacy Mode | Squad Leads |
+|---|---|---|---|
+| **[`cpu-ai-simd.yaml`](docs/mother-cards/cpu-ai-simd.yaml)** | Intel AMX, AVX-512, AVX10, ARM SVE2, llama.cpp / GGML, OpenVINO, oneDNN | `local` | SIMD Vectorizer, GGML Quant Tuner, NUMA Scheduler, Runtime Lead |
+| **[`cpu-energy-efficiency.yaml`](docs/mother-cards/cpu-energy-efficiency.yaml)** | Perf-per-Watt, Intel/AMD RAPL energy profiling, DVFS tuning, TDP power capping | `local` | RAPL Profiler, DVFS Governor Lead, Heterocore Balancer, Thermal Watchdog |
+| **[`arm-hyperscale-compute.yaml`](docs/mother-cards/arm-hyperscale-compute.yaml)** | AWS Graviton4, AmpereOne, NVIDIA Grace CPU, NUMA cache tuning, ARM SVE2 | `hybrid` | ARM64 Compiler Lead, NUMA Cache Tuner, SVE Vector Eng, Cost Evaluator |
 
 ---
 

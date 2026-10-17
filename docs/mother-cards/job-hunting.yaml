@@ -1,0 +1,85 @@
+# ============================================================================
+# AJE Mother Card — Job Application & Career Hunting Automation
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-job-hunting
+  name: Autonomous Job Application & Career Engine Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    High-signal career pipeline management. Every job application artifact must match
+    the target job description's ATS keywords without fabricating credentials or experience.
+    Resumes are version-controlled in Markdown/LaTeX. All submissions, status updates,
+    and interview logs are maintained in an immutable application ledger with clear follow-up tasks.
+
+  design_system: "Markdown / ATS-Friendly Clean Formatting"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/tax_documents/**"
+      - "**/ssn/**"
+      - "**/banking/**"
+      - "**/personal_identities/**"
+    banned_commands:
+      - "git push --force"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - '(?i)(ghp_|sk-|AKIA)[a-zA-Z0-9]{20,}'
+      - '(?i)\b\d{3}-\d{2}-\d{4}\b'
+      - '(?i)\b\d{16}\b'
+    enable_ast_skeletonization: false
+    context_budget_chars: 24000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 3
+    vram_threshold_pct: 85.0
+    dual_pass_flakiness_check: false
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands: []
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/job-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "career/master_resume"
+    - "career/portfolio_projects"
+    - "career/publications"
+    - "career/target_roles"
+
+  squad_leads:
+    - resume-tailor
+    - cover-letter
+    - application-tracker
+    - interview-prep
+
+  global_context:
+    target_roles:
+      - "Senior Software Engineer"
+      - "AI / ML Platform Engineer"
+      - "Solutions Architect"
+    preferred_work_arrangement: "Remote / Hybrid"
+    output_formats:
+      - "markdown"
+      - "pdf"
+      - "json"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

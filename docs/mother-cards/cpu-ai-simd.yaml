@@ -1,0 +1,88 @@
+# ============================================================================
+# AJE Mother Card — CPU-Only AI & SIMD Vectorization Optimization Engineer
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-cpu-ai-simd
+  name: CPU-Only AI & SIMD Vectorization Optimization Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Maximize CPU-only AI compute throughput and memory bandwidth saturation without a GPU.
+    Master instruction-level SIMD parallelism across x86_64 and ARM (Intel AMX, AVX-512,
+    AVX10, ARM SVE2/NEON, and RISC-V Vector). Optimize quantized model execution (GGML,
+    llama.cpp, ONNX Runtime CPU, OpenVINO, oneDNN) using cache-blocking, register tiling,
+    thread pinning, and NUMA-aware multi-socket memory allocation.
+
+  design_system: "C++20 / OpenMP / intrinsics (immintrin.h / arm_neon.h) / oneDNN / PyTorch CPU"
+
+  safety_policies:
+    privacy_mode: local # Local-only processing on CPU workstation/server
+    restricted_paths:
+      - "**/.env*"
+      - "**/credentials/*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf /"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+    enable_ast_skeletonization: false
+    context_budget_chars: 20000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 1 # Concurrency 1 for deterministic CPU instruction and cycle profiling
+    vram_threshold_pct: 0.0 # CPU only - 0% VRAM constraint
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_cpu_simd_kernels.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/cpu-ai-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/intel_amx_optimization"
+    - "docs/avx512_vectorization"
+    - "docs/arm_sve2_guidelines"
+    - "docs/ggml_llama_cpp_internals"
+
+  squad_leads:
+    - simd-vectorizer     # Writes AVX-512 / AVX10 / ARM SVE2 intrinsic kernels (VNNI, dot-product)
+    - ggml-quant-tuner    # Tunes GGML INT4/INT8 quantization kernels (Q4_K_M, Q8_0, IQ4_XS)
+    - numa-scheduler      # Manages thread pinning (pthread_setaffinity), OMP_NUM_THREADS, and libnuma
+    - cpu-runtime-lead    # Integrates OpenVINO, Intel Extension for PyTorch (IPEX), and ONNX CPU
+
+  global_context:
+    target_instruction_sets:
+      - "Intel AMX (Advanced Matrix Extensions - TMUL/Tile)"
+      - "AVX-512 (F, CD, BW, DQ, VL, VNNI, BF16)"
+      - "AVX10.2 (Converged vector ISA)"
+      - "ARM SVE2 (Scalable Vector Extension 2) & NEON"
+      - "RISC-V RVV 1.0 (Vector Extension)"
+    compilers:
+      - "GCC 13+ / Clang 17+ with -march=native -O3 -ffast-math"
+      - "Intel oneAPI DPC++/C++ Compiler (icx)"
+    serving_frameworks:
+      - "llama.cpp / GGML"
+      - "OpenVINO Runtime"
+      - "ONNX Runtime CPU Execution Provider (MLAS/oneDNN)"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

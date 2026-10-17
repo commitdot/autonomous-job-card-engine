@@ -1,0 +1,76 @@
+# ============================================================================
+# AJE Mother Card — NVIDIA CUDA & GPU Kernel Systems Engineer
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-nvidia-cuda-kernel
+  name: NVIDIA CUDA & GPU Kernel Engineering Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Hardware-level GPU performance engineering. Write robust, clean CUDA C++ and OpenAI Triton
+    kernels targeting NVIDIA Tensor Cores. Eliminate shared memory bank conflicts, maximize memory
+    coalescing, minimize warp divergence, and leverage modern asynchronous copy primitives (TMA / cp.async).
+    Every kernel must validate numerical parity against PyTorch reference outputs with strict tolerances (atol=1e-3).
+
+  design_system: "CUDA C++20 / PyBind11 / Triton / Catch2"
+
+  safety_policies:
+    privacy_mode: local
+    restricted_paths:
+      - "**/.env*"
+      - "**/credentials/*"
+    banned_commands:
+      - "rm -rf /"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    enable_ast_skeletonization: false
+    context_budget_chars: 18000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 1 # Concurrency 1 for deterministic kernel profiling
+    vram_threshold_pct: 85.0
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_cuda_kernels.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/cuda-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/cuda_programming_guide"
+    - "docs/cutlass_reference"
+    - "docs/nsight_compute_tips"
+
+  squad_leads:
+    - kernel-author      # Drafts custom fused CUDA / Triton kernels (e.g. FlashAttention, fused RMSNorm)
+    - parity-verifier    # PyTorch/CUDA unit tests asserting numerical correctness vs fp32
+    - nsight-optimizer   # Analyzes roofline models, compute throughput, and memory bandwidth (SOL)
+    - pybind-bridge      # Writes C++ PyBind11/Torch extension boilerplate
+
+  global_context:
+    compiler: "nvcc (CUDA 12.x)"
+    cxx_standard: "C++20"
+    target_architectures:
+      - "sm_89 (Ada Lovelace)"
+      - "sm_90a (Hopper)"
+      - "sm_100 (Blackwell)"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

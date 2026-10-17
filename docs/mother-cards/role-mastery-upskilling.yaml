@@ -1,0 +1,87 @@
+# ============================================================================
+# AJE Mother Card — Role Mastery, Tooling Adoption & Career Progression
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-role-mastery-upskilling
+  name: Role Mastery, Tooling Adoption & Career Upskilling Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Continuous career growth and cognitive offloading. Master current job responsibilities
+    while automating routine toil to free up capacity for high-leverage engineering.
+    Proactively explore, evaluate, and adopt emerging tools, libraries, and best practices.
+    Generate practical, hands-on starter labs and automated workflow helpers to make
+    daily work frictionless and accelerate progression toward next-level competencies.
+
+  design_system: "Markdown / CLI Tools / Developer Documentation"
+
+  safety_policies:
+    # Hybrid mode: proprietary employer code stays local; public tool research uses cloud
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/proprietary/**"
+      - "**/internal_tickets/**"
+      - "**/.env*"
+      - "**/secrets/**"
+      - "**/credentials/*"
+    banned_commands:
+      - "rm -rf /"
+      - "git push --force"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+      - "(?i)password\\s*=\\s*[\"'][^\"']+[\"']"
+    enable_ast_skeletonization: false
+    context_budget_chars: 20000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 85.0
+    dual_pass_flakiness_check: false
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands: []
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/career-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "career/role_expectations"
+    - "career/competency_matrix"
+    - "learning/tool_evaluations"
+    - "learning/system_design"
+    - "tooling/automation_scripts"
+
+  squad_leads:
+    - workflow-accelerator
+    - tool-discovery
+    - role-analyst
+    - interactive-coach
+
+  global_context:
+    current_level: "Senior Software Engineer"
+    target_level: "Staff / Principal Engineer"
+    key_competencies:
+      - "Distributed Systems Architecture"
+      - "Developer Productivity & Tooling Automation"
+      - "Observability, Telemetry & SRE"
+      - "AI Agent Engineering & LLM Integration"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

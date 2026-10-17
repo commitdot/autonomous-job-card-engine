@@ -1,0 +1,81 @@
+# ============================================================================
+# AJE Mother Card — AMD AI Compiler, Triton & PyTorch Acceleration
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-amd-triton-compiler
+  name: AMD AI Compiler, Triton & PyTorch Frameworks Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Upstream AI framework integration and compiler backend acceleration for AMD ROCm.
+    Enable seamless, drop-in execution for PyTorch (TorchDynamo, AOTInductor), OpenAI Triton,
+    and high-throughput serving engines (vLLM, TGI, SGLang) on AMD Instinct GPUs.
+    Maximize compiler lowering efficiency from Triton IR to AMD GCN ISA, optimizing
+    block sizes, num_warps, and memory pipeline stages.
+
+  design_system: "Python / PyTorch 2.x / OpenAI Triton / MLIR / LLVM"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/checkpoints/**"
+      - "**/.env*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf /"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+    enable_ast_skeletonization: true
+    context_budget_chars: 22000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 90.0
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_triton_rocm_backend.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/compiler-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/triton_rocm_backend"
+    - "docs/torch_inductor_amd"
+    - "docs/vllm_rocm_deployment"
+
+  squad_leads:
+    - triton-backend      # Authors Triton lowering passes and custom AMD-specific tile primitives
+    - vllm-rocm-optimizer # PagedAttention & chunked prefill optimizations on MI300X 192GB HBM3
+    - torchdynamo-lead    # Benchmarks torch.compile() speedups with TorchInductor on ROCm
+    - serving-evaluator   # Tracks TTFT, TPOT, and latency percentiles vs CUDA counterparts
+
+  global_context:
+    rocm_version: "6.2.x / 6.3.x"
+    python_version: "3.11+"
+    frameworks:
+      - "PyTorch 2.4+ (ROCm build)"
+      - "OpenAI Triton (AMD branch / AOTriton)"
+      - "vLLM with ROCm backend"
+      - "FlashAttention-2 for ROCm"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

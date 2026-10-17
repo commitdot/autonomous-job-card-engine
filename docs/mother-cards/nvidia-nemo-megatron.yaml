@@ -1,0 +1,79 @@
+# ============================================================================
+# AJE Mother Card — NVIDIA Distributed Training & NeMo / Megatron-LM
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-nvidia-nemo-megatron
+  name: NVIDIA Distributed Training & Cluster Engineering Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Large-scale distributed LLM pre-training and alignment. Implement 3D parallelism
+    (Tensor Parallelism, Pipeline Parallelism, Sequence Parallelism, ZeRO/FSDP).
+    Automate fault-tolerant distributed checkpointing, InfiniBand collective communication
+    (NCCL) tuning, Slurm/Kubernetes job orchestration, and loss spike recovery.
+
+  design_system: "PyTorch Distributed / NVIDIA NeMo / Megatron-LM / Slurm"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/checkpoints/**"
+      - "**/secrets/**"
+      - "**/.env*"
+    banned_commands:
+      - "scancel -u $USER" # Prevent accidental batch job cancellations
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+    enable_ast_skeletonization: true
+    context_budget_chars: 22000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 95.0
+    dual_pass_flakiness_check: false
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_distributed_configs.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/cluster-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/megatron_lm"
+    - "docs/nemo_framework"
+    - "docs/nccl_tuning"
+
+  squad_leads:
+    - parallelism-architect # Calculates optimal TP/PP/DP/SP split based on model & cluster topology
+    - nccl-tuner           # Profiles inter-GPU all-reduce latency and InfiniBand bandwidth
+    - checkpoint-manager   # Asynchronous distributed checkpointing & resume runbooks
+    - slurm-orchestrator   # Generates reproducible Slurm sbatch & PyTorch torchrun scripts
+
+  global_context:
+    frameworks:
+      - "NVIDIA NeMo 2.0"
+      - "Megatron-LM"
+      - "PyTorch FSDP / DeepSpeed"
+    interconnect: "InfiniBand Quantum-2 (400Gb/s) / RoCEv2"
+    orchestrator: "Slurm / Kubernetes (KubeFlow / Run:ai)"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

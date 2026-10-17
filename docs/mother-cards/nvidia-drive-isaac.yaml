@@ -1,0 +1,74 @@
+# ============================================================================
+# AJE Mother Card — NVIDIA Autonomous Systems & Isaac/Omniverse Robotics
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-nvidia-drive-isaac
+  name: NVIDIA Autonomous Vehicles & Isaac Robotics Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Real-time safety-critical autonomous systems and synthetic physics simulation.
+    Build deterministic perception, trajectory planning, and sensor fusion modules in modern C++
+    and Python/ROS2. Generate photorealistic synthetic datasets using NVIDIA Omniverse / Isaac Sim USD
+    pipelines. Ensure strict latency budgets (<20ms per cycle) and MISRA C++ safety standards.
+
+  design_system: "C++17 / ROS2 Humble / NVIDIA Omniverse USD / Python"
+
+  safety_policies:
+    privacy_mode: local
+    restricted_paths:
+      - "**/telemetry_recordings/**"
+      - "**/harness_keys/**"
+      - "**/.env*"
+    banned_commands:
+      - "rm -rf /"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    enable_ast_skeletonization: true
+    context_budget_chars: 18000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 85.0
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "colcon test --packages-select isaac_perception"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/robotics-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/isaac_sim"
+    - "docs/omniverse_usd"
+    - "docs/ros2_guidelines"
+
+  squad_leads:
+    - perception-lead    # TensorRT-accelerated object detection, BEV, and occupancy networks
+    - sim-generator      # OpenUSD procedural scenes and domain randomization in Isaac Sim
+    - ros2-pipeline      # Zero-copy ROS2 intra-process nodes and QoS profile tuning
+    - safety-validator   # Boundary collision checks, latency watchdog timers, and fail-safes
+
+  global_context:
+    simulation_engine: "NVIDIA Isaac Sim / Omniverse 2024+"
+    robotics_middleware: "ROS2 (Humble / Iron)"
+    target_embedded_soc: "NVIDIA DRIVE Thor / Jetson AGX Orin"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

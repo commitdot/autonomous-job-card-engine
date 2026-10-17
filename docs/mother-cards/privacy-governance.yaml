@@ -1,0 +1,115 @@
+# ============================================================================
+# AJE Mother Card — Privacy, Compliance & System 1 Data Governance
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-privacy-governance
+  name: Privacy, Compliance & Data Governance Guardian Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Zero-trust privacy-by-design and rigorous data compliance governance (GDPR, HIPAA, CCPA).
+    Enforce strict local-first data processing for sensitive contexts and zero telemetry leakage.
+    Leverage System 1 (heuristic fast-path) for instantaneous authoring of privacy notices,
+    data processing agreements (DPAs), consent manifests, data retention schedules, and documentation.
+    Escalate token hashing, anonymization pipelines, and database sanitization to System 2 with
+    full sandboxed verification. All actions are immutably recorded in the cryptographic audit chain.
+
+  design_system: "IBM Carbon Design System"
+
+  safety_policies:
+    privacy_mode: local # Local-first execution to guarantee zero data egress
+    restricted_paths:
+      - "**/.env*"
+      - "**/secrets/**"
+      - "**/credentials/*"
+      - "**/certs/**"
+      - "**/keys/**"
+      - "**/pii/**"
+      - "**/userData/**"
+      - "**/logs/audit*"
+      - "**/database/credentials/*"
+    banned_commands:
+      - "curl"
+      - "wget"
+      - "nc "
+      - "ncat"
+      - "rm -rf"
+      - "docker system prune"
+      - "git push --force"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+      - "(?i)password\\s*=\\s*[\"'][^\"']+[\"']"
+      - "(?i)\\b\\d{3}-\\d{2}-\\d{4}\\b"   # SSN
+      - "(?i)\\b\\d{16}\\b"                # Credit Card
+      - "(?i)(aws_secret_access_key|private_key)"
+    enable_ast_skeletonization: true
+    context_budget_chars: 16000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 80.0
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    enable_injection_guard: true
+    enable_sast_scan: true
+    enable_attestation: true
+    composite_integration_commands:
+      - "python -m unittest discover -s tests"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/privacy-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: true
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/privacy"
+    - "docs/compliance"
+    - "docs/rfc"
+    - "schemas"
+
+  squad_leads:
+    - privacy-officer
+    - data-governance
+    - compliance-auditor
+    - redaction-lead
+
+  global_context:
+    compliance_standards:
+      - "GDPR"
+      - "CCPA"
+      - "HIPAA"
+      - "SOC2-TypeII"
+    cognitive_routing:
+      system_1:
+        description: "Heuristic fast-path for privacy policies, DPAs, consent notices, and docstrings."
+        deliverable_patterns:
+          - "*.md"
+          - "docs/privacy/*"
+          - "legal/*"
+      system_2:
+        description: "Deliberative self-healing sandbox loop for anonymization code, sanitizers, and crypto modules."
+        deliverable_patterns:
+          - "*.py"
+          - "*.ts"
+    data_retention_days: 90
+    pii_redaction_strategy: "deterministic_pseudonymization"
+    encryption_at_rest: "AES-256-GCM"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

@@ -1,0 +1,81 @@
+# ============================================================================
+# AJE Mother Card — ARM Neoverse & Hyperscale Cloud CPU Architect
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-arm-hyperscale-compute
+  name: ARM Neoverse & Hyperscale Cloud CPU Architecture Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Hyperscale datacenter compute efficiency on ARM64 Neoverse V-series and N-series architectures.
+    Optimize multi-tenant microservices, database storage engines, and CPU inference for AWS Graviton4,
+    AmpereOne, and NVIDIA Grace Superchips. Master NUMA-node locality, L3 system cache partitioning,
+    weak memory ordering (ARM memory model), and large-system core counts (up to 192 cores per socket).
+
+  design_system: "Linux ARM64 / C++20 / Go / Rust / CMake / Perf"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/cloud_credentials/**"
+      - "**/.env*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf /"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+    enable_ast_skeletonization: true
+    context_budget_chars: 20000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 0.0
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_arm_benchmarks.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/arm-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/arm_neoverse_v2_v3_optimization"
+    - "docs/aws_graviton_tuning_guide"
+    - "docs/ampere_altra_architecture"
+
+  squad_leads:
+    - arm64-compiler-lead # Configures GCC/LLVM flags for Neoverse cores (-mcpu=neoverse-v2)
+    - numa-cache-tuner    # Tunes memory bandwidth and eliminates remote socket cross-traffic
+    - sve-vector-engineer # Dispatches SVE/SVE2 vector math for string search, crypto, and tokenization
+    - cost-efficiency-eval# Measures Price-Performance and Watts-per-Transaction vs x86 instances
+
+  global_context:
+    target_platforms:
+      - "AWS Graviton3 / Graviton4 (ARM Neoverse V1 / V2)"
+      - "AmpereOne (up to 192 single-threaded ARM cores)"
+      - "NVIDIA Grace CPU Superchip (72 Neoverse V2 cores, 500GB/s LPDDR5X)"
+    architecture_specs:
+      - "ARMv9.2-A / Neoverse V2"
+      - "SVE2 (2x 256-bit vector units)"
+      - "bf16 & int8 Matrix Math (MatMul/DotProd)"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

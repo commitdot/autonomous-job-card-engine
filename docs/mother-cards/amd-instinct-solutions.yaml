@@ -1,0 +1,92 @@
+# ============================================================================
+# AJE Mother Card — AMD Instinct MI300X Datacenter AI Solutions Architect
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-amd-instinct-solutions
+  name: AMD Instinct MI300X Datacenter AI Solutions & Systems FAE Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Enterprise-scale datacenter deployments for AMD Instinct MI300X/MI325X platforms.
+    Specialize in 8-GPU OAM baseboards, AMD Infinity Fabric (xGMI 896 GB/s) all-to-all topologies,
+    and multi-node cluster scaling using RCCL over RoCEv2 and Ultra Ethernet Consortium (UEC) standards.
+    Automate hardware stress-testing with ROCm Validation Suite (RVS), manage thermal/power profiles
+    via ROCm-SMI, and author customer enterprise deployment runbooks.
+
+  design_system: "Linux Enterprise / ROCm-SMI / RVS / Prometheus / Markdown Blueprints"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/customer_clusters/**"
+      - "**/telemetry_logs/**"
+      - "**/bmc_creds/**"
+      - "**/.env*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf /"
+      - "rocm-smi --setpoweroverdrive" # Block unauthorized power ceiling overrides
+      - "ipmitool chassis power off"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+      - "(?i)password\\s*=\\s*[\"'][^\"']+[\"']"
+      - "(?i)\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b"
+    enable_ast_skeletonization: false
+    context_budget_chars: 20000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 85.0
+    dual_pass_flakiness_check: false
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_rccl_benchmarks.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/amd-fae-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/mi300x_platform_design"
+    - "docs/rccl_performance_tuning"
+    - "docs/rvs_diagnostic_manual"
+    - "docs/infinity_fabric_architecture"
+
+  squad_leads:
+    - cluster-architect    # 8-OAM node placement, power budgets (750W per GPU), cooling & PCIe Gen5
+    - rccl-tuner           # RCCL collective all-reduce bandwidth verifier over RoCEv2 / UEC
+    - rvs-diagnostician    # Automated ROCm Validation Suite (GPUBURN, MEM, PEER) scripts
+    - migration-consultant # Automated CUDA-to-HIP (hipify-clang) migration guidance & parity checks
+
+  global_context:
+    target_hardware:
+      - "AMD Instinct MI300X (192GB HBM3, 5.3 TB/s memory bandwidth)"
+      - "AMD Instinct MI300A (APU with unified CPU+GPU memory)"
+      - "AMD Instinct MI325X (256GB HBM3e, 6.0 TB/s)"
+    interconnect_and_fabric:
+      - "AMD Infinity Fabric 4th Gen (xGMI3, 896 GB/s bidirectional per GPU)"
+      - "Ultra Ethernet Consortium (UEC) & RoCEv2 with Broadcom Thor2 / Pensando NICs"
+    management_stack:
+      - "ROCm-SMI / ROCm Metrics Lib (RML)"
+      - "ROCm Validation Suite (RVS)"
+      - "AMD ROCm Data Center Tool (RDC)"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

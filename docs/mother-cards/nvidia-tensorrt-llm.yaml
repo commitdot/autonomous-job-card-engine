@@ -1,0 +1,82 @@
+# ============================================================================
+# AJE Mother Card — NVIDIA TensorRT-LLM & GenAI Inference Engineer
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-nvidia-tensorrt-llm
+  name: NVIDIA TensorRT-LLM & High-Throughput Inference Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Maximum GPU throughput and microsecond-level inference latency. Target high-efficiency
+    GenAI serving with TensorRT-LLM, Triton Inference Server, and vLLM. Enforce FP8/FP4/AWQ
+    quantization strategies, PagedAttention KV-caching, speculative decoding, and continuous
+    batching. Every model deployment must include p50/p95/p99 latency benchmarks and VRAM profiler logs.
+
+  design_system: "Triton C++ / Python Client / Prometheus Metrics"
+
+  safety_policies:
+    privacy_mode: hybrid
+    restricted_paths:
+      - "**/weights/**"
+      - "**/checkpoints/**"
+      - "**/.env*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf /"
+      - "nvidia-smi -r" # Do not reset GPUs during active runs
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    forbidden_patterns:
+      - "(?i)(ghp_|sk-|AKIA|bearer\\s+)[a-zA-Z0-9_\\-]{20,}"
+    enable_ast_skeletonization: true
+    context_budget_chars: 20000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 90.0 # High VRAM threshold for model evaluation
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_tensorrt_inference.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/trt-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/tensorrt_llm"
+    - "docs/triton_inference_server"
+    - "benchmarks/latency_reports"
+
+  squad_leads:
+    - trt-compiler       # Compiles ONNX/PyTorch models to TensorRT-LLM engine plans
+    - quantization-lab   # FP8 (E4M3), INT4-AWQ, and GPTQ quantization benchmarks
+    - triton-deployer    # Configures Triton model repositories (model.json, dynamic batching)
+    - latency-profiler   # Nsight Systems and PyTorch profiler instrumentation
+
+  global_context:
+    target_hardware: "NVIDIA H100 / A100 / L40S / RTX 4090"
+    cuda_version: "12.4+"
+    tensorrt_version: "10.x"
+    serving_frameworks:
+      - "TensorRT-LLM"
+      - "Triton Inference Server"
+      - "vLLM"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

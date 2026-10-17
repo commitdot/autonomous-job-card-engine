@@ -1,0 +1,79 @@
+# ============================================================================
+# AJE Mother Card — System Support to AI Engineer Career Transition
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-support-to-ai-engineer
+  name: Support-to-AI Systems Engineer Transition Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Bridge system administration and operational troubleshooting expertise into
+    production AI engineering. Focus on deterministic AI architectures, local LLM
+    serving (Ollama/vLLM), RAG pipeline construction, prompt guardrails, and test-driven
+    Python development. Automate day-to-day support workflows while building a tangible
+    portfolio of AI infrastructure and application projects.
+
+  design_system: "CLI / Developer Tools / API Documentation"
+
+  safety_policies:
+    privacy_mode: local # Run locally with Ollama to learn model mechanics on-device
+    restricted_paths:
+      - "**/.env*"
+      - "**/credentials/*"
+      - "**/secrets/**"
+    banned_commands:
+      - "rm -rf /"
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    enable_ast_skeletonization: false
+    context_budget_chars: 16000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 2
+    vram_threshold_pct: 80.0
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "python -m pytest tests/"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/ai-learn-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/ai_architecture"
+    - "docs/runbooks"
+    - "portfolio/projects"
+
+  squad_leads:
+    - ai-foundations
+    - rag-engineer
+    - llm-infra-ops
+    - agent-guardrails
+
+  global_context:
+    current_role: "System Support / IT Operations"
+    target_role: "AI Systems Engineer / LLMOps Engineer"
+    primary_language: "Python 3.12+"
+    stack_focus:
+      - "FastAPI & Pydantic v2"
+      - "Ollama (ibm/granite-code, gemma3, llama3)"
+      - "ChromaDB / Vector Indexing"
+      - "Pytest Unit & Integration Testing"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []

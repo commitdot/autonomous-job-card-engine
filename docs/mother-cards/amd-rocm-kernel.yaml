@@ -1,0 +1,80 @@
+# ============================================================================
+# AJE Mother Card — AMD ROCm & HIP GPU Kernel Performance Engineer
+# ============================================================================
+apiVersion: agent.autonomous.io/v1alpha1
+kind: MotherCard
+
+metadata:
+  id: mother-amd-rocm-kernel
+  name: AMD ROCm & HIP Kernel Performance Engineering Mother Card
+
+spec:
+  archetype: custom
+  core_philosophy: |
+    Low-level compute optimization for AMD CDNA and RDNA GPU architectures.
+    Author high-efficiency HIP C++, Composable Kernel (CK), and rocWMMA/MFMA matrix core kernels.
+    Optimize LDS (Local Data Share) bank conflict avoidance, wavefront scheduling (Wave64 / Wave32),
+    global memory coalescing, and vector load instructions (buffer_load_dwordx4).
+    Every kernel must pass strict numerical tolerance checks (atol=1e-3) against PyTorch fp32 baselines.
+
+  design_system: "HIP C++ / Composable Kernel / rocBLAS / Catch2 / Python PyBind"
+
+  safety_policies:
+    privacy_mode: local
+    restricted_paths:
+      - "**/.env*"
+      - "**/credentials/*"
+    banned_commands:
+      - "rm -rf /"
+      - "rocm-smi --resetprofile" # Avoid resetting clock profiles mid-test
+
+  governance_policies:
+    enable_repo_regex_scan: true
+    enable_ast_skeletonization: false
+    context_budget_chars: 20000
+    enable_alignment_cascades: true
+    max_wave_depth: 3
+    max_concurrency: 1 # Concurrency 1 for isolated ROCm profiler runs
+    vram_threshold_pct: 85.0
+    dual_pass_flakiness_check: true
+    enable_containment_jail: true
+    enable_audit_chain: true
+    composite_integration_commands:
+      - "pytest tests/test_hip_kernels.py"
+
+  repository:
+    local_path: "."
+    remote_slug: ""
+    target_branch: "main"
+    branch_prefix: "aje/rocm-"
+    auth_token_env: "GITHUB_TOKEN"
+    auto_create_pr: false
+    auto_merge_pr: false
+
+  rag_knowledge_paths:
+    - "docs/rocm_programming_guide"
+    - "docs/composable_kernel_docs"
+    - "docs/cdna3_instruction_set_architecture"
+
+  squad_leads:
+    - hip-kernel-author   # Writes HIP C++ / Composable Kernel fused attention & GEMM kernels
+    - wavefront-tuner     # Profiles Wave64/Wave32 occupancy and LDS bank conflicts
+    - miopen-optimizer    # MIOpen / rocBLAS operator selection and tuning database generation
+    - rocprof-analyst     # Analyzes trace profiles from rocprof and Omnitrace
+
+  global_context:
+    compiler: "hipcc (ROCm 6.2+ / Clang)"
+    target_gfx_architectures:
+      - "gfx942 (AMD Instinct MI300X / MI300A - CDNA3)"
+      - "gfx90a (AMD Instinct MI210 / MI250X - CDNA2)"
+      - "gfx1100 (AMD Radeon RX 7900 XTX - RDNA3)"
+    matrix_core_extensions:
+      - "MFMA (Matrix Fused Multiply-Add) Instructions"
+      - "FP8 (E4M3 / E5M2) & BF16 Mixed-Precision"
+
+status:
+  family_health: "Healthy"
+  total_spend_usd: 0.0
+  active_children: []
+  completed_children: []
+  backlog_queue: []
