@@ -1,0 +1,12 @@
+.git
+.worktrees/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+.env
+.venv/
+env/
+venv/

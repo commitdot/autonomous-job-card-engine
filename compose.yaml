@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # Autonomous Job-Card Engine Core
+  aje-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aje-engine
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - WATSONX_API_KEY=${WATSONX_API_KEY:-}
+      - WATSONX_PROJECT_ID=${WATSONX_PROJECT_ID:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    volumes:
+      # Mount your local repository / project into the container workspace
+      - ./:/workspace
+    ports:
+      - "7890:7890" # Mobile Companion & Web Dashboard Bridge
+    depends_on:
+      - ollama
+    command: ["start"]
+
+  # Local LLM Serving Container (Air-Gapped / Local-First)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: aje-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "11434:11434"
+    # Uncomment deploy section if running on an NVIDIA GPU host:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  ollama_models:

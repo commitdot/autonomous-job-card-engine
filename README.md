@@ -199,6 +199,23 @@ Initialize your project, link your repository, and choose a Mother Card archetyp
 python -m src.cli.main init
 ```
 
+### 🐳 3. Pre-Deployed Docker Container (Docker Compose)
+Run the entire AJE fleet and local Ollama stack in isolated containers with zero host setup:
+
+```bash
+# Boot AJE engine, FastMCP server, Mobile Bridge, and Ollama
+docker compose up -d
+
+# View live autonomous execution logs
+docker compose logs -f aje-engine
+
+# Inject tasks into running container
+docker compose exec aje-engine python -m src.cli.main inject \
+  --name "Add Redis Token Revocation" \
+  --squad backend \
+  --objective "Implement token blacklisting in app/auth.py"
+```
+
 ---
 
 ## 🖥️ End-to-End CLI & Terminal UI Walkthrough
