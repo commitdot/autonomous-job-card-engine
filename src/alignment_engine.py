@@ -20,10 +20,19 @@ class AlignmentEngine:
         self._seen_task_fingerprints: Set[str] = set()
 
     def calculate_task_fingerprint(
-        self, parent_squad_id: str, tactical_objective: str, deliverable_paths: List[str]
+        self,
+        parent_squad_id: str,
+        tactical_objective: str,
+        deliverable_paths: List[str],
+        recursion_depth: int = 0,
+        wave_depth: Optional[int] = None,
     ) -> str:
-        """Computes a deterministic SHA-256 fingerprint for cycle and duplicate prevention."""
-        raw = f"{parent_squad_id.strip()}:::{tactical_objective.strip()}:::{','.join(sorted(deliverable_paths))}"
+        """
+        Computes a deterministic SHA-256 fingerprint for cycle and duplicate prevention,
+        incorporating recursion depth / wave depth into the hash.
+        """
+        depth = wave_depth if wave_depth is not None else recursion_depth
+        raw = f"{parent_squad_id.strip()}:::{tactical_objective.strip()}:::{','.join(sorted(deliverable_paths))}:::depth={depth}"
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def is_task_seen(self, fingerprint: str) -> bool:
@@ -113,6 +122,8 @@ class AlignmentEngine:
         blast = self.calculate_blast_radius(modified_files)
         alignment_tasks: List[Dict[str, Any]] = []
 
+        target_wave_depth = current_wave_depth + 1
+
         # 1. QA Test Alignment Task
         if blast["requires_qa_sync"]:
             mod_str = ", ".join(modified_files[:3])
@@ -120,7 +131,7 @@ class AlignmentEngine:
             qa_deliverables = [{"path": f"tests/test_align_{completed_child_id.replace('-', '_')}.py", "description": f"Regression assertions for {mod_str}"}]
             qa_deliv_paths = [d["path"] for d in qa_deliverables]
             
-            fp = self.calculate_task_fingerprint("squad-qa", qa_objective, qa_deliv_paths)
+            fp = self.calculate_task_fingerprint("squad-qa", qa_objective, qa_deliv_paths, recursion_depth=target_wave_depth)
             if not self.is_task_seen(fp):
                 self.register_task_fingerprint(fp)
                 alignment_tasks.append({
@@ -130,7 +141,7 @@ class AlignmentEngine:
                     "tactical_objective": qa_objective,
                     "deliverables": qa_deliverables,
                     "validation_commands": ["python -m unittest discover -s tests"],
-                    "wave_depth": current_wave_depth + 1,
+                    "wave_depth": target_wave_depth,
                     "depends_on": [completed_child_id],
                 })
 
@@ -141,7 +152,7 @@ class AlignmentEngine:
             doc_deliverables = [{"path": "docs/alignment_changelog.md", "description": f"Changelog and contract alignment for {mod_str}"}]
             doc_deliv_paths = [d["path"] for d in doc_deliverables]
 
-            fp = self.calculate_task_fingerprint("squad-docs", doc_objective, doc_deliv_paths)
+            fp = self.calculate_task_fingerprint("squad-docs", doc_objective, doc_deliv_paths, recursion_depth=target_wave_depth)
             if not self.is_task_seen(fp):
                 self.register_task_fingerprint(fp)
                 alignment_tasks.append({
@@ -151,7 +162,7 @@ class AlignmentEngine:
                     "tactical_objective": doc_objective,
                     "deliverables": doc_deliverables,
                     "validation_commands": [],
-                    "wave_depth": current_wave_depth + 1,
+                    "wave_depth": target_wave_depth,
                     "depends_on": [completed_child_id],
                 })
 

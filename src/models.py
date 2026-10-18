@@ -34,6 +34,8 @@ class GovernancePolicies:
     enable_sast_scan: bool = True
     enable_containment_jail: bool = True
     enable_audit_chain: bool = True
+    enable_harness2: bool = False
+    max_recursion_depth: int = 3
 
 
 @dataclass
@@ -102,6 +104,8 @@ class MotherCard:
             enable_sast_scan=gov_data.get("enable_sast_scan", True),
             enable_containment_jail=gov_data.get("enable_containment_jail", True),
             enable_audit_chain=gov_data.get("enable_audit_chain", True),
+            enable_harness2=gov_data.get("enable_harness2", False),
+            max_recursion_depth=gov_data.get("max_recursion_depth", 3),
         )
 
         return cls(
@@ -246,6 +250,7 @@ class ChildCard:
     git_branch: str = ""
 
     _source_path: str = ""
+    _recursion_state: Dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
     def from_yaml(cls, path: str) -> "ChildCard":

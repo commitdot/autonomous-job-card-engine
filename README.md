@@ -26,6 +26,7 @@ The **Autonomous Job-Card Engine (AJE)** is a declarative **operating system for
 6. **Air-Gapped Local RAG Subsystem**: Embeds internal RFCs, architecture guidelines, database schemas, and design system tokens with sub-20ms local vector retrieval and incremental re-indexing.
 7. **Live Repository & Enterprise Ticketing Intelligence**: FastMCP signals and closed-loop resolution sync with ServiceNow, Salesforce, Jira, Pega, and GitHub Issues.
 8. **Hybrid Sovereign Privacy Guard**: Sensitive credentials and restricted paths automatically force local model execution (e.g. Gemma 3 / Qwen 2.5 via Ollama) and redact secrets before cloud routing.
+9. **Harness² Dual-Level Recursion (opt-in)**: Task-level *Propose–Probe–Compose* across isolated worktrees with behavioral-contrast reflection, plus harnessing-level meta-memory that carries lessons across cards and DAG waves—with model weights held fixed. See the *Harness² Dual-Level Recursion* section below.
 
 ---
 
@@ -76,6 +77,56 @@ flowchart TB
     Workers <--> Interfaces
     AuditLog <--> Interfaces
 ```
+
+---
+
+## 🔁 Harness² Dual-Level Recursion
+
+AJE integrates the **Harness²** recursive agent harnessing framework (Google Research, *Recursive Agent Harnessing for an Open World*, 2026). Model weights stay fixed; instead, the *harness* around the model (system prompt, guardrails, memory, tool guidance, subagents, skills, scripts, plugins) is proposed, tested, and learned recursively at two levels. It is **opt-in** per Mother Card and fully backward compatible—the 3-tier hierarchy, YAML cards, worktree jails, System 1/System 2 triage, and the Merkle audit ledger are unchanged.
+
+```yaml
+# In any Mother Card: spec.governance_policies
+governance_policies:
+  enable_harness2: true      # default: false (legacy single-path System 2 loop)
+  max_recursion_depth: 3     # hard ceiling on Propose–Probe–Compose rounds per card
+```
+
+```mermaid
+flowchart TB
+    subgraph L1 ["Level 1 — Task-Level Recursion (per Child Card, System 2 only)"]
+        Propose["PROPOSE\nAdapter generates N 8-component harness candidates"]
+        Probe["PROBE\nEach candidate runs in its own isolated worktree\nand is validated by the card's test commands"]
+        Compose["COMPOSE\nBehavioral contrast between passing and failing probes\nselects the winner (no ground truth needed)"]
+        Commit["Sandboxed commit of composed deliverables\n(contained within the execution root)"]
+        Reflect["Contrast feedback replaces blind retry\n(next round, bounded by max_recursion_depth)"]
+        Propose --> Probe --> Compose
+        Compose -->|winner passed| Commit
+        Compose -->|no passing probe| Reflect --> Propose
+    end
+
+    subgraph L2 ["Level 2 — Harnessing-Level Meta-Learning (across cards and DAG waves)"]
+        Extract["Extract evidence-supported lessons\n(contrast, fault frames, verified patterns)"]
+        Store[".jobs/recursion/lessons_learned.json\n(deduplicated institutional memory)"]
+        Index["Incremental Local RAG re-index"]
+        Next["Next Child Cards: lessons injected into\nproposals and RAG context"]
+        Extract --> Store --> Index --> Next
+    end
+
+    Commit --> Extract
+    Next -.->|guides| Propose
+    Audit["Merkle audit ledger: HARNESS2_PROPOSE / PROBE_COMPARISON /\nCOMPOSITION_DECISION / DEPTH_LIMIT / CONTAINMENT_VIOLATION"]
+    L1 -.-> Audit
+```
+
+| Capability | Where it lives |
+|---|---|
+| 8-component harness model + Propose–Probe–Compose interface (`HarnessMixin`) | [`src/adapters/harness_mixin.py`](src/adapters/harness_mixin.py), implemented by `SimAdapter`, `OllamaAdapter`, `WatsonxAdapter` |
+| Probe branching in isolated worktrees, contrast evaluation, sandboxed commit | `AutonomousJobCardEngine._run_harness2_iteration` in [`src/daemon.py`](src/daemon.py) |
+| Persistent probes, contrast matrices, and lessons (`.jobs/recursion/`) | [`src/recursion/state_manager.py`](src/recursion/state_manager.py) |
+| Lesson indexing into local RAG for subsequent cards | [`src/rag/indexer.py`](src/rag/indexer.py) |
+| Depth-aware alignment-cascade deduplication fingerprints | [`src/alignment_engine.py`](src/alignment_engine.py) |
+
+**Guarantees:** System 1 fast-path tasks never invoke Harness² (zero overhead); when the adapter lacks support or `max_recursion_depth` is reached, execution falls back to the single-path loop; only a probe that passed validation can be committed; and every probe comparison and composition decision is recorded in the tamper-evident audit ledger.
 
 ---
 
@@ -466,6 +517,7 @@ python test_aje_e2e.py
 * ✔️ **AST Skeletonization**: Skeletons dependency interfaces, reducing prompt tokens by **up to 92%**
 * ✔️ **Continuous Multi-Tier Alignment Engine**: Symbol blast-radius calculation, downstream QA/Doc alignment cascades, and SHA-256 deduplication
 * ✔️ **Fast Sequential Wave Execution**: Bounded concurrency ($N=2$) with isolated Git worktrees and Hardware/VRAM sentinels
+* ✔️ **Harness² Dual-Level Recursion**: Multi-depth Propose–Probe–Compose, behavioral-contrast reflection, and cross-task lesson transfer across DAG waves ([`tests/test_harness2_e2e.py`](tests/test_harness2_e2e.py)), validated against all 20 Mother Card blueprints
 * ✔️ **Dual-Process Cognitive Triage**: System 1 fast-path and System 2 deliberative self-healing with dual-pass flakiness detection
 * ✔️ **Local Sovereign RAG**: Sub-20ms vector retrieval with incremental single-file re-indexing
 * ✔️ **Closed-Loop Enterprise Ticketing**: Bi-directional resolution sync with ServiceNow, Salesforce, Jira, Pega, and GitHub Issues

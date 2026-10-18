@@ -31,6 +31,12 @@ import textwrap
 from typing import Dict, Any, List, Optional
 
 from .base import BaseLLMAdapter
+from .harness_mixin import (
+    ComposedHarness,
+    HarnessCandidate,
+    HarnessConfig,
+    HarnessMixin,
+)
 from ..ast_skeleton import ASTSkeletonizer
 from ..sandbox import extract_fault_frame
 
@@ -44,7 +50,7 @@ except ImportError:
 DEFAULT_MODEL = "gemma3:27b"
 
 
-class OllamaAdapter(BaseLLMAdapter):
+class OllamaAdapter(BaseLLMAdapter, HarnessMixin):
     """
     Production LLM adapter backed by a local Ollama endpoint.
 
@@ -360,3 +366,232 @@ class OllamaAdapter(BaseLLMAdapter):
             except json.JSONDecodeError:
                 pass
         return []
+
+    # ------------------------------------------------------------------
+    # HarnessMixin — Propose–Probe–Compose
+    # ------------------------------------------------------------------
+
+    def propose_harness_candidates(
+        self,
+        tactical_objective: str,
+        deliverables: List[Dict[str, str]],
+        n_candidates: int = 3,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[HarnessCandidate]:
+        """
+        Asks Ollama to generate N diverse 8-component harness configurations.
+
+        Builds a structured prompt describing the 8 components and requests a
+        JSON array of harness configs.  Falls back to sensible defaults when the
+        model response cannot be parsed.
+        """
+        context = context or {}
+        lessons: List[str] = context.get("lessons", [])
+        lessons_block = ""
+        if lessons:
+            lessons_block = "## Institutional Lessons\n" + "\n".join(f"- {l}" for l in lessons[:5])
+
+        deliv_list = "\n".join(
+            f"  - {d.get('path','?')}: {d.get('description','')}" for d in deliverables
+        )
+
+        prompt = textwrap.dedent(f"""
+            You are a harness architect for a recursive coding agent (Harness² system).
+            Your job is to propose {n_candidates} DISTINCT execution harness configurations
+            for the task below.  Each harness varies one or more of the 8 components.
+
+            ## Task
+            {tactical_objective}
+
+            ## Deliverables
+            {deliv_list}
+
+            {lessons_block}
+
+            ## 8 Harness Components
+            1. system_prompt   — role and persona (string)
+            2. guardrails      — hard rules (list of strings)
+            3. memory          — injected context (list of strings)
+            4. tool_guidance   — tool usage rules (list of strings)
+            5. subagents       — child-agent instructions (list of strings)
+            6. skills          — domain skills to activate (list of strings)
+            7. scripts         — code templates to inject (list of strings)
+            8. plugins         — third-party plugin directives (list of strings)
+
+            Respond ONLY with a valid JSON array of exactly {n_candidates} objects.
+            Each object must include only keys from the 8 components above.
+            Example:
+            [
+              {{"system_prompt": "...", "guardrails": ["rule1"], "memory": [], ...}},
+              ...
+            ]
+        """).strip()
+
+        print(f"  [OLLAMA] Proposing {n_candidates} harness candidates...")
+        response_text = self._generate(prompt)
+        raw_list = self._parse_json_array(response_text)
+
+        candidates: List[HarnessCandidate] = []
+        for i, raw in enumerate(raw_list[:n_candidates]):
+            if isinstance(raw, dict):
+                candidates.append(HarnessCandidate(harness=HarnessConfig.from_dict(raw)))
+
+        # Pad with baseline candidates if the model returned fewer than requested
+        while len(candidates) < n_candidates:
+            i = len(candidates)
+            cfg = HarnessConfig(
+                system_prompt=f"Expert coding agent — variant {i + 1}. Task: {tactical_objective[:100]}",
+                guardrails=["Follow existing project conventions.", "Do not break existing tests."],
+            )
+            if i >= 1:
+                cfg.memory = [f"Objective: {tactical_objective[:80]}"]
+            if i >= 2:
+                cfg.skills = ["python-best-practices"]
+            candidates.append(HarnessCandidate(harness=cfg))
+
+        return candidates
+
+    def probe_execution(
+        self,
+        candidate: HarnessCandidate,
+        tactical_objective: str,
+        deliverables: List[Dict[str, str]],
+        iteration: int = 1,
+        execution_root: Optional[str] = None,
+    ) -> HarnessCandidate:
+        """
+        Probes a single harness candidate by injecting its 8-component block
+        into the code-generation prompt and executing Ollama.
+
+        The harness block is prepended to the prompt so that the model is
+        constrained by the candidate's specific configuration.
+        """
+        target_root = execution_root or self.workspace_root
+        harness_block = candidate.harness.render_prompt_block()
+        candidate.deliverables = {}
+        fault_frames = []
+
+        for deliv in deliverables:
+            rel_path = deliv.get("path", "")
+            description = deliv.get("description", "")
+            abs_path = os.path.join(target_root, rel_path)
+
+            existing_content = ""
+            if os.path.exists(abs_path):
+                try:
+                    with open(abs_path, "r") as f:
+                        existing_content = f.read()
+                except Exception:
+                    pass
+
+            base_prompt = self._build_code_prompt(
+                tactical_objective=tactical_objective,
+                rel_path=rel_path,
+                description=description,
+                iteration=iteration,
+                previous_errors="",
+                existing_content=existing_content,
+                design_system="",
+            )
+
+            # Prepend harness block to inject the 8 components
+            full_prompt = f"{harness_block}\n\n{base_prompt}" if harness_block else base_prompt
+
+            print(f"  [OLLAMA] Probing candidate {candidate.candidate_id}: {rel_path}...")
+            response_text = self._generate(full_prompt)
+            code = self._extract_code_block(response_text, rel_path)
+
+            os.makedirs(os.path.dirname(abs_path) if os.path.dirname(abs_path) else ".", exist_ok=True)
+            with open(abs_path, "w") as f:
+                f.write(code)
+
+            candidate.deliverables[rel_path] = code
+
+        candidate.status = "success"
+        candidate.fault_frames = fault_frames
+        candidate.score = self._score_candidate(candidate)
+        candidate.stdout = f"[OLLAMA] Probe {candidate.candidate_id} wrote {len(deliverables)} file(s)."
+        return candidate
+
+    def compose_harness(
+        self,
+        candidates: List[HarnessCandidate],
+        tactical_objective: str,
+        deliverables: List[Dict[str, str]],
+    ) -> ComposedHarness:
+        """
+        Contrasts probed candidates and asks Ollama to synthesise the best result.
+
+        When all candidates succeeded, asks the model to select and merge the
+        best deliverable content.  Falls back to score-based selection when the
+        model response cannot be parsed.
+        """
+        winner = self._select_best_candidate(candidates)
+        rationale = self._build_contrast_rationale(candidates, winner)
+
+        if not candidates or winner is None:
+            return ComposedHarness(
+                winning_candidate_id=None,
+                harness=HarnessConfig(),
+                deliverables={},
+                synthesis_rationale=rationale,
+                candidates_evaluated=len(candidates),
+                score=0.0,
+            )
+
+        passing = [c for c in candidates if c.status == "success"]
+        if len(passing) <= 1:
+            # Nothing to contrast — return the winner as-is
+            return ComposedHarness(
+                winning_candidate_id=winner.candidate_id,
+                harness=winner.harness,
+                deliverables=winner.deliverables,
+                synthesis_rationale=rationale,
+                candidates_evaluated=len(candidates),
+                score=winner.score,
+            )
+
+        # Build a synthesis prompt for multi-candidate contrast
+        rel_paths = [d.get("path", "") for d in deliverables]
+        variants_block = ""
+        for c in passing:
+            for path in rel_paths:
+                snippet = (c.deliverables.get(path, "") or "")[:400]
+                variants_block += f"\n### Candidate {c.candidate_id} — {path}\n```python\n{snippet}\n```\n"
+
+        compose_prompt = textwrap.dedent(f"""
+            You are reviewing {len(passing)} candidate implementations for:
+            {tactical_objective}
+
+            Select or merge the best implementation for each file.
+            Return ONLY a JSON object mapping file paths to their final content.
+            Example: {{"path/to/file.py": "...full content..."}}
+
+            ## Candidate Implementations
+            {variants_block}
+        """).strip()
+
+        print(f"  [OLLAMA] Composing from {len(passing)} passing candidate(s)...")
+        response_text = self._generate(compose_prompt)
+
+        # Try to parse a JSON object from the response
+        composed_deliverables = winner.deliverables.copy()
+        try:
+            import re as _re
+            obj_match = _re.search(r"\{.*\}", response_text, _re.DOTALL)
+            if obj_match:
+                import json as _json
+                merged = _json.loads(obj_match.group(0))
+                if isinstance(merged, dict):
+                    composed_deliverables = merged
+        except Exception:
+            pass
+
+        return ComposedHarness(
+            winning_candidate_id=winner.candidate_id,
+            harness=winner.harness,
+            deliverables=composed_deliverables,
+            synthesis_rationale=rationale,
+            candidates_evaluated=len(candidates),
+            score=winner.score,
+        )

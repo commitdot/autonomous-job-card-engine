@@ -34,6 +34,50 @@ class LocalRAGIndexer:
         total = max(len(tokens), 1)
         return {k: v / total for k, v in tf.items()}
 
+    def _extract_chunks_from_file(self, file_path: Path, source_rel: str) -> List[Dict[str, Any]]:
+        """
+        Extracts semantic text chunks from markdown, text, or structured JSON (like lessons_learned.json).
+        """
+        chunks: List[Dict[str, Any]] = []
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="ignore")
+            # Special structured handling for JSON files (especially lessons_learned.json)
+            if file_path.suffix.lower() == ".json":
+                try:
+                    data = json.loads(content)
+                    if isinstance(data, list) and all(isinstance(item, dict) for item in data):
+                        for idx, item in enumerate(data):
+                            if "summary" in item or "lesson_id" in item or "category" in item:
+                                category = item.get("category", "lesson").upper()
+                                summary = item.get("summary", "")
+                                details = item.get("details", "")
+                                tags_str = ", ".join(item.get("tags", []))
+                                source_card = item.get("source_card_id", "")
+                                lesson_text = f"[{category}] {summary}\nDetails: {details}\nTags: {tags_str}\nSource: {source_card}".strip()
+                                chunks.append({
+                                    "source": source_rel,
+                                    "chunk_id": f"lesson_{item.get('lesson_id', idx)}",
+                                    "content": lesson_text,
+                                    "tokens": self._tokenize(lesson_text),
+                                })
+                        if chunks:
+                            return chunks
+                except Exception:
+                    pass
+
+            # Standard paragraph splitting for Markdown and text
+            paragraphs = [p.strip() for p in content.split("\n\n") if len(p.strip()) > 20]
+            for idx, para in enumerate(paragraphs):
+                chunks.append({
+                    "source": source_rel,
+                    "chunk_id": f"{file_path.stem}_{idx}",
+                    "content": para,
+                    "tokens": self._tokenize(para),
+                })
+        except Exception:
+            pass
+        return chunks
+
     def index_paths(self, paths: List[str]) -> int:
         """
         Scans given relative paths in workspace and builds local RAG chunk index.
@@ -49,19 +93,9 @@ class LocalRAGIndexer:
                 files = list(target.rglob("*.md")) + list(target.rglob("*.txt")) + list(target.rglob("*.json"))
 
             for f in files:
-                try:
-                    content = f.read_text(encoding="utf-8", errors="ignore")
-                    # Split into ~500 char sections or paragraphs
-                    paragraphs = [p.strip() for p in content.split("\n\n") if len(p.strip()) > 30]
-                    for idx, para in enumerate(paragraphs):
-                        raw_chunks.append({
-                            "source": str(f.relative_to(self.workspace_root)),
-                            "chunk_id": f"{f.stem}_{idx}",
-                            "content": para,
-                            "tokens": self._tokenize(para),
-                        })
-                except Exception:
-                    continue
+                source_rel = str(f.relative_to(self.workspace_root)).replace("\\", "/")
+                file_chunks = self._extract_chunks_from_file(f, source_rel)
+                raw_chunks.extend(file_chunks)
 
         if not raw_chunks:
             # Write empty index
@@ -110,18 +144,7 @@ class LocalRAGIndexer:
         target_file = self.workspace_root / rel_path
         new_chunks = []
         if target_file.exists() and target_file.is_file():
-            try:
-                content = target_file.read_text(encoding="utf-8", errors="ignore")
-                paragraphs = [p.strip() for p in content.split("\n\n") if len(p.strip()) > 30]
-                for idx, para in enumerate(paragraphs):
-                    new_chunks.append({
-                        "source": norm_target,
-                        "chunk_id": f"{target_file.stem}_{idx}",
-                        "content": para,
-                        "tokens": self._tokenize(para),
-                    })
-            except Exception:
-                pass
+            new_chunks = self._extract_chunks_from_file(target_file, norm_target)
 
         all_raw = [{"tokens": c["tokens"] if "tokens" in c else self._tokenize(c["content"]), "chunk": c} for c in retained]
         for c in new_chunks:
@@ -158,6 +181,13 @@ class LocalRAGIndexer:
 
         self._save()
         return len(new_chunks)
+
+    def index_lessons(self, lessons_path: str = ".jobs/recursion/lessons_learned.json") -> int:
+        """
+        Indexes institutional lessons from .jobs/recursion/lessons_learned.json
+        into the local RAG store.
+        """
+        return self.reindex_file(lessons_path)
 
     def _save(self):
         payload = {

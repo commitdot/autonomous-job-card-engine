@@ -211,6 +211,10 @@ class SquadWaveExecutor:
                 print(f"  [BARRIER-WARN] Composite Gate encountered issue: {gate_res['failed_command']}")
 
         # 2. Re-index RAG & Refresh AST
+        lessons_path = ".jobs/recursion/lessons_learned.json"
+        if os.path.exists(os.path.join(self.workspace_root, lessons_path)):
+            self.daemon.rag_indexer.reindex_file(lessons_path)
+
         if mother.rag_knowledge_paths:
             self.daemon.index_rag_knowledge(mother.rag_knowledge_paths)
 
