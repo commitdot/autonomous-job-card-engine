@@ -7,6 +7,8 @@
 [![Local-RAG](https://img.shields.io/badge/RAG-Local_Vector_Store-purple.svg)](#)
 
 > **Say goodbye to active chat prompting.** Define goals declaratively, let the multi-tiered Mother-Child engine orchestrate execution safely, and watch your entire engineering fleet autonomously self-improve, test, and expand 24/7.
+>
+> 📄 **[Read Executive Value Proposition & Enterprise ROI Case Studies (VALUE_PROPOSITION.md)](VALUE_PROPOSITION.md)**
 
 ---
 
