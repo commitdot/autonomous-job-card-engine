@@ -1,4 +1,5 @@
 # 👩‍👦 Autonomous Job-Card Engine (AJE) v4.0
+### An open-source framework for autonomous software engineering fleets.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python Version](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
