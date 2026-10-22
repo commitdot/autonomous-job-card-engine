@@ -6,7 +6,8 @@
 [![Cost Optimization: -92%](https://img.shields.io/badge/Cost_Savings--92%25_Token_Prune-purple.svg)](#-pillar-1-extreme-cost-savings-up-to-92-reduction-in-api--dev-spend)
 [![Git Isolation: Worktrees](https://img.shields.io/badge/Isolation-Git_Worktrees_%2B_Jails-orange.svg)](#-pillar-3-safe-autonomous-self-management-zero-dirty-worktrees)
 
-> **"Unleash frontier AI super-intelligence at 10% of the cost, with zero IP leakage, isolated Git worktrees, and tamper-proof SOC2 auditability."**
+> ⚡ **`One task. One model. Blazingly fast.`**
+> *Unleash frontier AI super-intelligence at 10% of the cost, with zero IP leakage, isolated Git worktrees, and tamper-proof SOC2 auditability.*
 
 ---
 

@@ -6,7 +6,8 @@
 [![MCP-Enabled](https://img.shields.io/badge/MCP-FastMCP_2.0-green.svg)](mcp-server/)
 [![Local-RAG](https://img.shields.io/badge/RAG-Local_Vector_Store-purple.svg)](#)
 
-> **Say goodbye to active chat prompting.** Define goals declaratively, let the multi-tiered Mother-Child engine orchestrate execution safely, and watch your entire engineering fleet autonomously self-improve, test, and expand 24/7.
+> ⚡ **`One task. One model. Blazingly fast.`**
+> *Deploy specialized autonomous micro-agents that solve, test, and ship code at machine speed.*
 >
 > 📄 **[Read Executive Value Proposition & Enterprise ROI Case Studies (VALUE_PROPOSITION.md)](VALUE_PROPOSITION.md)**
 
