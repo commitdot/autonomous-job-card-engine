@@ -137,6 +137,7 @@ The **Open Adapter Hub** extends AJE with 11 community-curated zero-weight cartr
 | Testing | `pytest-self-healing` | Fault-frame triage, dual-pass flakiness, 90% coverage gate |
 | GPU Compute | `cuda-kernel-opt` | CUTLASS 3.x Tensor Cores, shared-memory bank analysis, Nsight |
 | Web Backend | `fastapi-backend` | Pydantic v2, typed OpenAPI 3.1, Redis token-bucket rate limiting |
+| Distributed Systems | `system-design-architect` | Circuit-breaker, cache-aside, transactional outbox, rate limiting, resiliency — distilled from freeCodeCamp guides; **92% pass rate** |
 
 ### One-Command Activation
 
@@ -151,6 +152,41 @@ python -m src.cli.main adapter attach fintech-banking --mode patch --priority 10
 ```
 
 > **ROI Impact:** Zero-weight harness patches add **0ms latency** and **0 VRAM overhead** while preventing entire classes of regulatory violations at code-generation time — eliminating costly post-release remediation sprints.
+
+---
+
+## 🧬 Unsloth Fine-Tuning Pipeline — Custom Domain Adapters
+
+Beyond zero-weight harness patches, AJE ships a full **QLoRA fine-tuning pipeline** (`recipes/unsloth/`) that lets teams distill proprietary knowledge — internal style guides, domain-specific API patterns, compliance playbooks — into lightweight LoRA adapters packaged as `type: lora` `AdapterCartridges`. No full-precision GPU cluster required.
+
+### ROI: Fine-Tuning Cost Breakdown
+
+| Platform | GPU | Approx. cost per run | Notes |
+|---|---|---|---|
+| **Google Colab (free)** | T4 16 GB | **$0** | Session limits apply; suits 3B–8B models |
+| **Google Colab Pro** | T4 / L4 / A100 | ~$10/month | Longer sessions, faster GPUs |
+| **RunPod / Lambda / Vast.ai** | A10 / L4 / RTX 4090 | **$0.15–$0.45 per run** | Pay per use; ideal for 7B–14B models |
+| **Local** | 16–24 GB GPU | Electricity only | Windows requires WSL2 |
+
+> **Total cost for a production-quality fine-tuning run** (7B model, 3 epochs, up to ~1,000 curated examples): **$0.15–$0.45** on cloud GPU rental, or **$0** on free Google Colab — a fraction of the cost of a single developer sprint.
+
+### Pipeline at a Glance
+
+```bash
+# Dry-run: validate dataset, preview training plan — no GPU required
+python -m src.cli.main adapter train --dry-run
+
+# Full training run: outputs adapter.safetensors + cartridge.yaml
+python -m src.cli.main adapter train \
+  --base-model qwen2.5-coder-7b \
+  --dataset recipes/unsloth/sample_system_design_dataset.jsonl \
+  --cartridge-name system-design-architect-lora \
+  --hf-repo-id your-org/system-design-architect-lora
+```
+
+Supported base models: `qwen2.5-coder-7b`, `qwen2.5-coder-14b`, `llama-3.1-8b-instruct`, `llama-3.2-3b-instruct`.
+
+The generated `cartridge.yaml` embeds `lora_sha256` for tamper-proof weight verification on install — fully consistent with AJE's cryptographic audit chain.
 
 ---
 

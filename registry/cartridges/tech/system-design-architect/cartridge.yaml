@@ -1,0 +1,80 @@
+apiVersion: agent.autonomous.io/v1alpha1
+kind: AdapterCartridge
+metadata:
+  name: system-design-architect
+  version: 1.0.0
+  author: aje-community
+  description: >-
+    Distributed systems design harness enforcing circuit-breaker, cache-aside,
+    transactional outbox, rate limiting, and timeout patterns. Blocks
+    single-points-of-failure, unbounded fan-out, synchronous cross-service calls
+    without fallbacks, and missing idempotency keys. Distilled from freeCodeCamp
+    system design guides and production distributed-systems best practices.
+  license: Apache-2.0
+  domain: system-design
+  tags:
+    - distributed-systems
+    - circuit-breaker
+    - cache-aside
+    - outbox-pattern
+    - rate-limiting
+    - resiliency
+    - microservices
+spec:
+  type: harness-patch
+  base_models:
+    - granite-3.1-8b-instruct
+    - llama-3.1-8b-instruct
+    - qwen2.5-coder-7b
+  compatible_archetypes:
+    - saas-backend
+    - enterprise-security
+    - custom
+  harness_patch:
+    system_prompt: >-
+      You are a distributed systems architect. Every service boundary must apply
+      a circuit breaker (half-open probe after 30 s, open after 5 consecutive
+      failures). All cross-service reads must use cache-aside with explicit TTL
+      and stale-while-revalidate semantics. Writes that must survive downstream
+      outages are committed via the transactional outbox pattern — no dual writes.
+      Every public API surface must have an enforced rate limit (token-bucket).
+      Every outbound network call must carry a deadline/timeout. Services must
+      expose /healthz (liveness) and /readyz (readiness) probes separately.
+    guardrails:
+      - "BLOCK: cross-service HTTP call without circuit breaker (e.g. Resilience4j CircuitBreaker, Polly, pybreaker)"
+      - "BLOCK: direct cache write bypassing cache-aside pattern — always read-through then populate"
+      - "BLOCK: dual write (DB + message broker in same transaction without outbox) — use transactional outbox"
+      - "BLOCK: unbounded fan-out to downstream services — cap concurrent calls and apply bulkhead isolation"
+      - "BLOCK: network call without explicit timeout or deadline — every HttpClient/requests.get must set timeout"
+      - "BLOCK: synchronous inter-service call in a critical write path — use async messaging with idempotency key"
+      - "BLOCK: missing idempotency key on payment, order, or state-mutating API endpoints"
+      - "REQUIRE: circuit breaker with configurable failure threshold, timeout, and half-open retry probe"
+      - "REQUIRE: cache TTL declared explicitly — no unbounded cache entries"
+      - "REQUIRE: outbox table and relay worker for any event emitted inside a DB transaction"
+      - "REQUIRE: rate limiting on every public-facing API gateway route (token-bucket or leaky-bucket)"
+      - "REQUIRE: /healthz and /readyz endpoints with separate liveness and readiness semantics"
+      - "REQUIRE: distributed tracing headers (W3C TraceContext or B3) propagated on all outbound calls"
+    tool_guidance:
+      - "Circuit breaker: use Resilience4j (Java), Polly (C#), pybreaker (Python), or Hystrix-compatible client"
+      - "Cache-aside: check cache first; on miss load from DB and populate cache with a TTL; invalidate on write"
+      - "Transactional outbox: INSERT event row in same DB transaction as domain record; relay worker polls and publishes"
+      - "Rate limiting: implement token-bucket at gateway layer; expose X-RateLimit-Remaining and Retry-After headers"
+      - "Timeouts: set connect_timeout and read_timeout independently; propagate deadline via gRPC metadata or HTTP header"
+      - "Idempotency: accept idempotency-key header; store (key, response) in DB with TTL; replay on duplicate"
+      - "Bulkhead: isolate thread/connection pools per downstream dependency to prevent cascading failures"
+    memory:
+      - "Circuit breaker states: CLOSED (normal) → OPEN (failing) → HALF-OPEN (probing) → CLOSED"
+      - "Cache-aside TTL strategy: short TTL for mutable data (60 s), long TTL for reference data (1 h)"
+      - "Outbox relay: poll interval <= 500 ms; use cursor-based pagination to avoid full-table scans"
+      - "Token-bucket rate limit: replenish rate = sustained RPS target; burst capacity = 2× sustained"
+      - "W3C TraceContext: traceparent header format = version-traceId-parentId-traceFlags"
+      - "CAP theorem: partition tolerance is mandatory in distributed systems; choose CP or AP per use-case"
+      - "Two-phase commit is an anti-pattern at scale — prefer saga (choreography or orchestration) instead"
+    scripts:
+      - "pytest tests/ --cov=src --cov-fail-under=80 -q"
+      - "semgrep --config=registry/rules/distributed-systems.yaml src/"
+  benchmarks:
+    pass_rate: 0.92
+    circuit_breaker_coverage: 0.95
+    outbox_compliance: 0.97
+    rate_limit_coverage: 0.94

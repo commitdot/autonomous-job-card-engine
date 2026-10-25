@@ -407,6 +407,7 @@ flowchart LR
         T2["🧪 pytest-self-healing"]
         T3["⚡ cuda-kernel-opt"]
         T4["🚀 fastapi-backend"]
+        T5["🏗️ system-design-architect"]
         I1["💳 fintech-banking"]
         I2["🏥 healthcare-hipaa"]
         I3["🛡️ cybersecurity-defense"]
@@ -422,7 +423,7 @@ flowchart LR
         Adapter["Model Adapter\n(Ollama / watsonx.ai / Sim)"]
     end
 
-    T1 & T2 & T3 & T4 --> Mother
+    T1 & T2 & T3 & T4 & T5 --> Mother
     I1 & I2 & I3 & I4 & I5 & I6 & I7 --> Mother
     Mother --> Harness --> Adapter
 ```
@@ -435,6 +436,7 @@ flowchart LR
 | **[pytest-self-healing](registry/cartridges/tech/pytest-self-healing/cartridge.yaml)** | Testing | Fault-frame analysis, dual-pass flakiness, 90% coverage gate | 94% |
 | **[cuda-kernel-opt](registry/cartridges/tech/cuda-kernel-opt/cartridge.yaml)** | GPU Compute | CUTLASS 3.x, shared-memory tuning, Nsight workflow, Ampere/Hopper | 91% |
 | **[fastapi-backend](registry/cartridges/tech/fastapi-backend/cartridge.yaml)** | Web Backend | Pydantic v2, typed OpenAPI 3.1, Redis rate limiting, async SQLAlchemy | 93% |
+| **[system-design-architect](registry/cartridges/tech/system-design-architect/cartridge.yaml)** | Distributed Systems | Circuit-breaker, cache-aside, transactional outbox, rate limiting, resiliency patterns | 92% |
 
 ### 🏭 Industry Compliance Cartridges (`registry/cartridges/industry/`)
 
@@ -475,7 +477,34 @@ python -m src.cli.main adapter init my-domain-pack \
   --industry myindustry \
   --author "Your Name" \
   --description "My domain compliance pack"
+
+# Train a LoRA adapter cartridge with Unsloth QLoRA (requires GPU + unsloth installed)
+python -m src.cli.main adapter train \
+  --base-model qwen2.5-coder-7b \
+  --dataset recipes/unsloth/sample_system_design_dataset.jsonl \
+  --cartridge-name system-design-architect-lora \
+  --hf-repo-id your-org/system-design-architect-lora \
+  --lora-rank 16
+
+# Dry-run: validate dataset and preview training plan without GPU or file writes
+python -m src.cli.main adapter train --dry-run
 ```
+
+#### `aje adapter train` Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--dataset` | *(required)* | Path to Alpaca or ShareGPT JSONL training file |
+| `--base-model` | `qwen2.5-coder-7b` | Base model id (`qwen2.5-coder-7b`, `qwen2.5-coder-14b`, `llama-3.1-8b-instruct`, `llama-3.2-3b-instruct`) |
+| `--output` | `.jobs/unsloth-output/` | Directory for `adapter.safetensors`, `lora_adapter/`, and `cartridge.yaml` |
+| `--cartridge-name` | `system-design-architect-lora` | Name embedded in the generated `cartridge.yaml` |
+| `--cartridge-id` | `1.0.0` | Version string for the cartridge manifest |
+| `--hf-repo-id` | — | Hugging Face repo id where adapter weights will be uploaded |
+| `--max-steps` | *(recipe default)* | Number of training epochs |
+| `--lora-rank` | `16` | LoRA rank (higher = more parameters, more VRAM) |
+| `--domain` | — | Domain label written into cartridge metadata |
+| `--author` | — | Author name written into cartridge metadata |
+| `--dry-run` | `false` | Validate dataset and preview plan; no GPU or writes required |
 
 ### 🤝 Contributing a Cartridge
 
@@ -483,6 +512,73 @@ python -m src.cli.main adapter init my-domain-pack \
 2. **Edit** — fill in `cartridge.yaml` with your domain guardrails, system prompt, and benchmarks.
 3. **Test** — `aje adapter test <name>` must report all PASS before submission.
 4. **PR** — open a pull request to `registry/cartridges/` — the catalog auto-discovers any `cartridge.yaml` within that tree.
+
+---
+
+## 🧬 Unsloth Fine-Tuning Pipeline (`recipes/unsloth/`)
+
+AJE ships a full **QLoRA fine-tuning pipeline** powered by [Unsloth](https://github.com/unslothai/unsloth) that lets you distill domain knowledge into a `type: lora` `AdapterCartridge` — no full-precision training, no multi-GPU cluster. The pipeline lives in [`recipes/unsloth/`](recipes/unsloth/) and is invoked via `aje adapter train`.
+
+### Pipeline Files
+
+| File | Purpose |
+|---|---|
+| [`recipes/unsloth/train_cartridge.py`](recipes/unsloth/train_cartridge.py) | Train, export `adapter.safetensors`, compute SHA-256, write `cartridge.yaml` |
+| [`recipes/unsloth/dataset_formatter.py`](recipes/unsloth/dataset_formatter.py) | Convert task traces, JSON lists, and text pairs to Alpaca / ShareGPT JSONL |
+| [`recipes/unsloth/sample_system_design_dataset.jsonl`](recipes/unsloth/sample_system_design_dataset.jsonl) | 8 Alpaca seed pairs for the system-design-architect cartridge |
+
+### Quick Start
+
+```bash
+# 1. Dry-run — validate dataset, print training plan, write nothing (no GPU needed)
+python -m src.cli.main adapter train --dry-run
+
+# 2. Real training run on a CUDA GPU
+pip install unsloth
+python -m src.cli.main adapter train \
+  --base-model qwen2.5-coder-7b \
+  --dataset recipes/unsloth/sample_system_design_dataset.jsonl \
+  --cartridge-name system-design-architect-lora \
+  --hf-repo-id your-org/system-design-architect-lora \
+  --lora-rank 16
+
+# 3. Install the trained cartridge
+aje adapter pull system-design-architect-lora --weights
+```
+
+### Cost Table
+
+| Platform | GPU | Approx. cost per run | Notes |
+|---|---|---|---|
+| **Google Colab (free)** | T4 16 GB | **$0** | Session limits apply; suits 3B–8B models |
+| **Google Colab Pro** | T4 / L4 / A100 | ~$10/month | Longer sessions, faster GPUs |
+| **RunPod / Lambda / Vast.ai** | A10 / L4 / RTX 4090 | **$0.15–$0.45 per run** | Pay per use; ideal for 7B–14B |
+| **Local** | 16–24 GB GPU | Electricity only | Windows requires WSL2 |
+
+> Typical total cost for a seed-sized dataset (≤1,000 examples, 3 epochs, 7B model): **$0.15–$0.45** on rented cloud GPU, or **$0** on free Colab.
+
+### Google Colab Setup
+
+1. Runtime → Change runtime type → **T4 GPU**.
+2. In a cell:
+
+```bash
+!git clone <your-fork-url> aje && cd aje
+!pip install unsloth pyyaml
+!python recipes/unsloth/train_cartridge.py --base-model llama-3.2-3b-instruct --epochs 3
+```
+
+3. Download `.jobs/unsloth-output/adapter.safetensors` and `cartridge.yaml` from the Files panel, or push to Hugging Face Hub.
+
+### Outputs
+
+Training writes to `.jobs/unsloth-output/` (override with `--output`):
+
+- `adapter.safetensors` — LoRA weight delta
+- `lora_adapter/` — PEFT config and tokenizer
+- `cartridge.yaml` — manifest with `lora_repo_id`, `lora_filename`, `lora_sha256`, `lora_rank`
+
+After uploading to Hugging Face, copy `cartridge.yaml` to `registry/cartridges/<domain>/<name>/` and run `aje adapter pull <name> --weights`. The SHA-256 checksum is verified on download; a mismatch is rejected.
 
 ---
 

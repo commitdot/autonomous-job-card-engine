@@ -2,7 +2,7 @@
 tests/test_cartridge_catalog.py
 ================================
 Validates every cartridge manifest in the community starter catalog:
-  - registry/cartridges/tech/   (4 technical starter cartridges)
+  - registry/cartridges/tech/   (5 technical starter cartridges)
   - registry/cartridges/industry/  (7 pre-populated industry cartridges)
 
 Each test asserts:
@@ -32,6 +32,7 @@ TECH_CARTRIDGES = [
     "pytest-self-healing",
     "cuda-kernel-opt",
     "fastapi-backend",
+    "system-design-architect",
 ]
 
 INDUSTRY_CARTRIDGES = [
@@ -163,6 +164,44 @@ class TestTechCartridges(CartridgeCatalogBase):
         ])
         self.assertIn("Pydantic", combined, "fastapi-backend should reference Pydantic")
 
+    def test_system_design_architect_loads(self):
+        self._full_assert("tech", "system-design-architect")
+
+    def test_system_design_architect_blocks_missing_circuit_breaker(self):
+        cart = _load("tech", "system-design-architect")
+        guardrails = cart.spec.harness_patch.get("guardrails", [])
+        combined = " ".join(guardrails)
+        self.assertIn("circuit breaker", combined.lower(),
+                      "system-design-architect must block calls without circuit breaker")
+
+    def test_system_design_architect_blocks_dual_write(self):
+        cart = _load("tech", "system-design-architect")
+        guardrails = cart.spec.harness_patch.get("guardrails", [])
+        combined = " ".join(guardrails)
+        self.assertIn("outbox", combined.lower(),
+                      "system-design-architect must enforce transactional outbox over dual write")
+
+    def test_system_design_architect_blocks_missing_timeout(self):
+        cart = _load("tech", "system-design-architect")
+        guardrails = cart.spec.harness_patch.get("guardrails", [])
+        combined = " ".join(guardrails)
+        self.assertIn("timeout", combined.lower(),
+                      "system-design-architect must block network calls without timeout")
+
+    def test_system_design_architect_requires_rate_limiting(self):
+        cart = _load("tech", "system-design-architect")
+        guardrails = cart.spec.harness_patch.get("guardrails", [])
+        combined = " ".join(guardrails)
+        self.assertIn("rate limit", combined.lower(),
+                      "system-design-architect must require rate limiting")
+
+    def test_system_design_architect_tool_guidance_covers_cache_aside(self):
+        cart = _load("tech", "system-design-architect")
+        guidance = cart.spec.harness_patch.get("tool_guidance", [])
+        combined = " ".join(guidance)
+        self.assertIn("cache-aside", combined.lower(),
+                      "system-design-architect tool_guidance must describe cache-aside pattern")
+
 
 # ---------------------------------------------------------------------------
 # Industry cartridges
@@ -243,9 +282,9 @@ class TestIndustryCartridges(CartridgeCatalogBase):
 # ---------------------------------------------------------------------------
 
 class TestCatalogCoverage(CartridgeCatalogBase):
-    """Ensures the complete 11-cartridge catalog is discoverable and valid."""
+    """Ensures the complete 12-cartridge catalog is discoverable and valid."""
 
-    def test_all_11_cartridges_present_on_disk(self):
+    def test_all_12_cartridges_present_on_disk(self):
         missing = []
         for slug in TECH_CARTRIDGES:
             if not os.path.isfile(_cartridge_path("tech", slug)):
@@ -255,7 +294,7 @@ class TestCatalogCoverage(CartridgeCatalogBase):
                 missing.append(f"industry/{slug}")
         self.assertFalse(missing, f"Missing cartridge files: {missing}")
 
-    def test_all_11_cartridges_load_cleanly(self):
+    def test_all_12_cartridges_load_cleanly(self):
         errors = []
         for slug in TECH_CARTRIDGES:
             try:
@@ -269,7 +308,7 @@ class TestCatalogCoverage(CartridgeCatalogBase):
                 errors.append(f"industry/{slug}: {exc}")
         self.assertFalse(errors, f"Cartridges failed to load:\n" + "\n".join(errors))
 
-    def test_all_11_cartridges_pass_validation(self):
+    def test_all_12_cartridges_pass_validation(self):
         errors = []
         for slug in TECH_CARTRIDGES:
             try:
@@ -283,7 +322,7 @@ class TestCatalogCoverage(CartridgeCatalogBase):
                 errors.append(f"industry/{slug}: {exc}")
         self.assertFalse(errors, f"Cartridge validation errors:\n" + "\n".join(errors))
 
-    def test_all_11_cartridges_have_benchmarks(self):
+    def test_all_12_cartridges_have_benchmarks(self):
         errors = []
         for slug in TECH_CARTRIDGES:
             cart = _load("tech", slug)
@@ -295,7 +334,7 @@ class TestCatalogCoverage(CartridgeCatalogBase):
                 errors.append(f"industry/{slug} has no benchmarks")
         self.assertFalse(errors, "\n".join(errors))
 
-    def test_all_11_cartridges_have_pass_rate_benchmark(self):
+    def test_all_12_cartridges_have_pass_rate_benchmark(self):
         errors = []
         for slug in TECH_CARTRIDGES:
             cart = _load("tech", slug)
@@ -315,7 +354,7 @@ class TestCatalogCoverage(CartridgeCatalogBase):
                     errors.append(f"industry/{slug} pass_rate {v} out of [0, 1]")
         self.assertFalse(errors, "\n".join(errors))
 
-    def test_all_11_cartridges_have_non_empty_harness_patch(self):
+    def test_all_12_cartridges_have_non_empty_harness_patch(self):
         errors = []
         for slug in TECH_CARTRIDGES:
             cart = _load("tech", slug)
@@ -327,7 +366,7 @@ class TestCatalogCoverage(CartridgeCatalogBase):
                 errors.append(f"industry/{slug} has empty harness_patch")
         self.assertFalse(errors, "\n".join(errors))
 
-    def test_all_11_cartridges_roundtrip(self):
+    def test_all_12_cartridges_roundtrip(self):
         errors = []
         for slug in TECH_CARTRIDGES:
             try:

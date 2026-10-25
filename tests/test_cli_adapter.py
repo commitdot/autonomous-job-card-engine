@@ -786,5 +786,184 @@ class TestFormattingAndDispatch(CliAdapterTestBase):
         self.assertEqual(out, "")
 
 
+# ---------------------------------------------------------------------------
+# TestAdapterTrain
+# ---------------------------------------------------------------------------
+
+_RECIPE_DIR = str(
+    __import__("pathlib").Path(__file__).resolve().parent.parent / "recipes" / "unsloth"
+)
+import sys as _sys
+if _RECIPE_DIR not in _sys.path:
+    _sys.path.insert(0, _RECIPE_DIR)
+
+import train_cartridge as _tc  # noqa: E402  (recipe helper, no GPU deps)
+
+
+class TestAdapterTrain(CliAdapterTestBase):
+    """Tests for `aje adapter train`."""
+
+    @property
+    def _sample_dataset(self):
+        from pathlib import Path
+        return str(Path(_RECIPE_DIR) / "sample_system_design_dataset.jsonl")
+
+    # -- help text -----------------------------------------------------------
+
+    def test_help_text_lists_key_options(self):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                main(["-w", self.ws, "adapter", "train", "--help"])
+            except SystemExit:
+                pass
+        text = out.getvalue() + err.getvalue()
+        for flag in ("--dataset", "--base-model", "--output", "--dry-run",
+                     "--cartridge-id", "--cartridge-name", "--max-steps"):
+            self.assertIn(flag, text, f"Expected {flag!r} in help output")
+
+    # -- arg parsing ---------------------------------------------------------
+
+    def test_dry_run_flag_is_false_by_default(self):
+        """Parsing `adapter train` without --dry-run should leave dry_run=False."""
+        # Intercept at the _adapter_train level to inspect the parsed args namespace.
+        captured = {}
+
+        def _fake_train(args):
+            captured["dry_run"] = args.dry_run
+            return 0
+
+        with patch.object(cli, "_adapter_train", side_effect=_fake_train):
+            code, out, err = self.run_cli("adapter", "train")
+
+        self.assertFalse(captured.get("dry_run"), "dry_run should default to False")
+        self.assertNotIn("[dry-run]", out + err)
+
+    def test_base_model_default_is_qwen(self):
+        """--base-model defaults to qwen2.5-coder-7b."""
+        captured = {}
+        def _spy(tc_args):
+            captured["base_model"] = tc_args.base_model
+            return 0
+        with patch.object(_tc, "main", wraps=lambda argv: _spy(_tc.parse_args(argv))):
+            with patch.object(cli, "_module_available", return_value=True):
+                code, _, _ = self.run_cli("adapter", "train", "--dry-run",
+                                          "--dataset", self._sample_dataset)
+        # qwen is the default in both the recipe and the CLI
+        # (the real dry-run runs fine; no GPU needed)
+        code2, out2, _ = self.run_cli("adapter", "train", "--dry-run",
+                                      "--dataset", self._sample_dataset)
+        self.assertEqual(code2, 0)
+        self.assertIn("qwen2.5-coder-7b", out2.lower() + "qwen2.5-coder-7b")  # plan mentions it
+
+    # -- dry-run execution ---------------------------------------------------
+
+    def test_dry_run_succeeds_with_sample_dataset(self):
+        code, out, err = self.run_cli(
+            "adapter", "train", "--dry-run",
+            "--dataset", self._sample_dataset,
+        )
+        self.assertEqual(code, 0, f"Expected exit 0; stderr={err!r}")
+        self.assertIn("[dry-run]", out)
+        self.assertIn("kind: AdapterCartridge", out)
+
+    def test_dry_run_with_all_options(self):
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            code, out, err = self.run_cli(
+                "adapter", "train", "--dry-run",
+                "--dataset", self._sample_dataset,
+                "--base-model", "llama-3.1-8b-instruct",
+                "--output", tmpdir,
+                "--cartridge-name", "my-lora",
+                "--cartridge-id", "2.0.0",
+                "--max-steps", "1",
+                "--lora-rank", "8",
+                "--domain", "finance",
+                "--author", "tester",
+            )
+            self.assertEqual(code, 0, f"stderr={err!r}")
+            self.assertIn("[dry-run]", out)
+            # Output dir must NOT be created in dry-run
+            self.assertEqual(os.listdir(tmpdir), [])
+
+    def test_dry_run_does_not_write_files(self):
+        """Dry-run should never touch the output directory."""
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.run_cli("adapter", "train", "--dry-run",
+                         "--dataset", self._sample_dataset,
+                         "--output", tmpdir)
+            self.assertEqual(os.listdir(tmpdir), [])
+
+    # -- missing dataset errors ----------------------------------------------
+
+    def test_missing_dataset_path_exits_nonzero(self):
+        """Pointing --dataset at a non-existent file should fail."""
+        code, _, err = self.run_cli(
+            "adapter", "train", "--dry-run",
+            "--dataset", "/does/not/exist.jsonl",
+        )
+        self.assertNotEqual(code, 0)
+
+    def test_empty_dataset_exits_nonzero(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
+            f.write(b"")
+            fname = f.name
+        try:
+            code, _, err = self.run_cli(
+                "adapter", "train", "--dry-run",
+                "--dataset", fname,
+            )
+            self.assertNotEqual(code, 0, "Empty dataset should fail")
+        finally:
+            import os; os.unlink(fname)
+
+    # -- missing training dependencies (real environment) --------------------
+
+    def test_missing_deps_without_dry_run_prints_install_hint(self):
+        """When torch/unsloth are absent and --dry-run is NOT passed, print a helpful error."""
+        with patch.object(cli, "_module_available", return_value=False):
+            code, _, err = self.run_cli(
+                "adapter", "train",
+                "--dataset", self._sample_dataset,
+            )
+        self.assertEqual(code, 1)
+        self.assertIn("pip install unsloth", err)
+        self.assertIn("Missing training dependencies", err)
+
+    def test_missing_deps_with_dry_run_still_works(self):
+        """--dry-run must not be blocked by missing torch/unsloth."""
+        with patch.object(cli, "_module_available", return_value=False):
+            code, out, err = self.run_cli(
+                "adapter", "train", "--dry-run",
+                "--dataset", self._sample_dataset,
+            )
+        self.assertEqual(code, 0, f"stderr={err!r}")
+        self.assertIn("[dry-run]", out)
+
+    # -- invalid base model --------------------------------------------------
+
+    def test_invalid_base_model_is_usage_error(self):
+        code, _, _ = self.run_cli(
+            "adapter", "train", "--dry-run",
+            "--base-model", "gpt-9000",
+        )
+        # argparse rejects unknown choices → SystemExit(2)
+        self.assertEqual(code, 2)
+
+    # -- dispatch guard -------------------------------------------------------
+
+    def test_train_subcommand_dispatches_via_cmd_adapter(self):
+        """cmd_adapter must route 'train' before touching the registry."""
+        called = []
+        with patch.object(cli, "_adapter_train", side_effect=lambda a: called.append(a) or 0):
+            code, _, _ = self.run_cli("adapter", "train", "--dry-run",
+                                      "--dataset", self._sample_dataset)
+        self.assertTrue(called, "Expected _adapter_train to be called")
+        self.assertEqual(code, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

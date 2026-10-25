@@ -7,7 +7,7 @@ Supports:
   aje inject    — Manually inject a feature request or bug ticket
   aje status    — Summary of Mother health, active squad, and pending backlog
   aje link      — Configure local and remote GitHub repository bindings
-  aje adapter   — Adapter cartridge hub: search / pull / list / info / attach / init / test
+  aje adapter   — Adapter cartridge hub: search / pull / list / info / attach / init / test / train
 
 Exit codes: 0 = success, 1 = command failed (not found, validation error, failed checks),
 2 = usage error (argparse).
@@ -829,6 +829,84 @@ def _adapter_test(args, registry: AdapterRegistry) -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# adapter train
+# ---------------------------------------------------------------------------
+
+_TRAIN_DEPS = ("torch", "unsloth")
+_TRAIN_INSTALL_HINT = (
+    "Install training dependencies on a CUDA machine:\n"
+    "  pip install unsloth\n"
+    "See recipes/unsloth/README.md for full instructions.\n"
+    "To validate the dataset and preview the plan without a GPU, add --dry-run."
+)
+
+
+def _adapter_train(args) -> int:
+    """Dispatch `aje adapter train` to the Unsloth recipe."""
+    if not args.dry_run:
+        missing = [dep for dep in _TRAIN_DEPS if not _module_available(dep)]
+        if missing:
+            _err(
+                f"Missing training dependencies: {', '.join(missing)}\n"
+                + _TRAIN_INSTALL_HINT
+            )
+            return 1
+
+    # Build argv for train_cartridge.main()
+    tc_argv: List[str] = []
+    if args.dataset:
+        tc_argv += ["--dataset", str(args.dataset)]
+    if args.base_model:
+        tc_argv += ["--base-model", args.base_model]
+    if args.output:
+        tc_argv += ["--output-dir", str(args.output)]
+    if args.cartridge_name:
+        tc_argv += ["--name", args.cartridge_name]
+    if args.cartridge_id:
+        tc_argv += ["--version", args.cartridge_id]
+    if args.hf_repo_id:
+        tc_argv += ["--hf-repo-id", args.hf_repo_id]
+    if args.max_steps is not None:
+        tc_argv += ["--epochs", str(args.max_steps)]
+    if args.lora_rank is not None:
+        tc_argv += ["--lora-rank", str(args.lora_rank)]
+    if args.domain:
+        tc_argv += ["--domain", args.domain]
+    if args.author:
+        tc_argv += ["--author", args.author]
+    if args.dry_run:
+        tc_argv.append("--dry-run")
+
+    import importlib.util as _ilu
+    import sys as _sys
+
+    # Locate and import train_cartridge from recipes/unsloth/ without polluting sys.modules permanently
+    _recipe_dir = str(Path(__file__).resolve().parent.parent.parent / "recipes" / "unsloth")
+    if _recipe_dir not in _sys.path:
+        _sys.path.insert(0, _recipe_dir)
+
+    try:
+        import train_cartridge as _tc  # noqa: PLC0415
+    except ImportError as exc:
+        _err(f"Cannot import train_cartridge recipe: {exc}")
+        return 1
+
+    try:
+        return _tc.main(tc_argv)
+    except SystemExit as exc:
+        msg = str(exc)
+        if msg and msg != "0":
+            _err(msg)
+            return 1
+        return 0
+
+
+def _module_available(name: str) -> bool:
+    import importlib.util
+    return importlib.util.find_spec(name) is not None
+
+
 def cmd_adapter(args) -> int:
     """Dispatch 'aje adapter <subcommand>'. Returns a process exit code (0 ok, 1 failure)."""
     workspace = os.path.abspath(args.workspace or ".")
@@ -836,6 +914,8 @@ def cmd_adapter(args) -> int:
     try:
         if sub == "init":  # scaffolding needs no registry
             return _adapter_init(args, workspace)
+        if sub == "train":
+            return _adapter_train(args)
         registry = _adapter_registry(workspace)
         if sub == "search":
             return _adapter_search(args, registry)
@@ -951,6 +1031,26 @@ def main(argv=None) -> int:
     a_test = adapter_sub.add_parser("test", help="Validate a cartridge manifest, patch and guardrails")
     a_test.add_argument("target", nargs="?", default=".", help="Cartridge name, or path to cartridge.yaml / directory (default: .)")
     a_test.add_argument("--version", default="latest", help="Cartridge version (default: latest)")
+
+    _BASE_MODEL_CHOICES = ["qwen2.5-coder-7b", "qwen2.5-coder-14b", "llama-3.1-8b-instruct", "llama-3.2-3b-instruct"]
+    a_train = adapter_sub.add_parser(
+        "train",
+        help="Train a LoRA adapter cartridge with Unsloth QLoRA (requires GPU + pip install unsloth)",
+    )
+    a_train.add_argument("--dataset", type=Path, default=None, help="Alpaca or ShareGPT JSONL dataset path")
+    a_train.add_argument("--base-model", dest="base_model", default="qwen2.5-coder-7b",
+                         choices=_BASE_MODEL_CHOICES, help="Base model key (default: qwen2.5-coder-7b)")
+    a_train.add_argument("--output", type=Path, default=None, help="Output directory for adapter and cartridge.yaml")
+    a_train.add_argument("--cartridge-id", dest="cartridge_id", default=None, help="Cartridge version string (default: 1.0.0)")
+    a_train.add_argument("--cartridge-name", dest="cartridge_name", default=None, help="Cartridge name (default: system-design-architect-lora)")
+    a_train.add_argument("--hf-repo-id", dest="hf_repo_id", default=None, help="Hugging Face repo id for the adapter weights")
+    a_train.add_argument("--max-steps", dest="max_steps", type=int, default=None,
+                         help="Training epochs (maps to --epochs in the recipe)")
+    a_train.add_argument("--lora-rank", dest="lora_rank", type=int, default=None, help="LoRA rank (default: 16)")
+    a_train.add_argument("--domain", default=None, help="Domain label for the cartridge metadata")
+    a_train.add_argument("--author", default=None, help="Author for the cartridge metadata")
+    a_train.add_argument("--dry-run", dest="dry_run", action="store_true",
+                         help="Validate dataset and preview training plan; no GPU or file writes required")
 
     args = parser.parse_args(argv)
     if not args.command:
