@@ -2,13 +2,16 @@ import os
 import json
 import glob
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
-from .models import MotherCard, ChildCard, SquadLeadCard, RepositoryBinding
+from .models import MotherCard, ChildCard, SquadLeadCard, RepositoryBinding, AdapterBinding, AdapterCartridge
 from .privacy_guard import PrivacyGuard
 from .sandbox import SandboxRunner
 from .adapters.base import BaseLLMAdapter
 from .adapters.sim_adapter import SimAdapter
+from .adapters.lora_manager import LoRAManager, LoRAManagerError
+from .adapters.patch_loader import apply_cartridges
+from .adapters.registry import AdapterRegistry
 from .rag.indexer import LocalRAGIndexer
 from .rag.retriever import LocalRAGRetriever
 from .ast_skeleton import ASTSkeletonizer
@@ -59,6 +62,147 @@ class AutonomousJobCardEngine:
         # Initialised per-cycle from MotherCard config
         self.privacy_guard = None
         self.sandbox = None
+
+        # Adapter cartridge subsystem — shared registry and LoRA manager
+        self._adapter_registry: Optional[AdapterRegistry] = None
+        self._lora_manager: Optional[LoRAManager] = None
+
+    def _get_adapter_registry(self) -> AdapterRegistry:
+        """Lazily initialise the adapter registry (singleton per engine instance)."""
+        if self._adapter_registry is None:
+            self._adapter_registry = AdapterRegistry(
+                installed_dir=os.path.join(self.jobs_dir, "installed_cartridges"),
+            )
+        return self._adapter_registry
+
+    def _get_lora_manager(self) -> LoRAManager:
+        """Lazily initialise the LoRA manager (singleton per engine instance)."""
+        if self._lora_manager is None:
+            self._lora_manager = LoRAManager(
+                cache_dir=os.path.join(self.jobs_dir, "adapters"),
+            )
+        return self._lora_manager
+
+    def _mount_cartridges_on_adapter(
+        self,
+        mother: MotherCard,
+        child_id: str,
+    ) -> None:
+        """
+        Inspect ``mother.attached_cartridges``, resolve each enabled binding against
+        the AdapterRegistry, optionally download LoRA weights, then mount the
+        (cartridge, binding) pairs onto ``self.llm`` via ``mount_cartridges()``.
+
+        Fallback chain per binding (``mode`` field or auto-detect):
+          1. If cartridge type is 'lora' or 'hybrid' **and** weights are already
+             cached locally → pass weight_path through metadata so capable backends
+             can load them.
+          2. If LoRA weights are not available or not cached → apply the YAML
+             harness patch only (graceful fallback).
+          3. If the cartridge has no harness_patch and no LoRA weights → skip with
+             a warning but continue (never hard-fail child execution).
+
+        Every successful mount is recorded as an ``adapter_cartridge_mounted`` event
+        in ``audit_ledger.jsonl`` via :meth:`write_audit_log`.
+        """
+        bindings = [b for b in (mother.attached_cartridges or []) if b.enabled]
+        if not bindings:
+            return
+
+        registry = self._get_adapter_registry()
+        lora_mgr = self._get_lora_manager()
+
+        resolved: List[Tuple[AdapterCartridge, Optional[AdapterBinding]]] = []
+        skipped: List[str] = []
+
+        for binding in bindings:
+            cartridge = registry.get_cartridge(binding.cartridge, binding.version)
+            if cartridge is None:
+                print(
+                    f"  [ADAPTER] WARNING: Cartridge '{binding.cartridge}' "
+                    f"(v{binding.version}) not found in registry — skipping."
+                )
+                skipped.append(binding.cartridge)
+                continue
+
+            spec = cartridge.spec
+            effective_mode = binding.mode  # 'auto' | 'lora' | 'patch'
+            weight_path: Optional[str] = None
+
+            # Attempt LoRA weight resolution when mode allows it
+            if effective_mode in ("auto", "lora") and spec.type in ("lora", "hybrid"):
+                if lora_mgr.is_cached(cartridge):
+                    weight_path = lora_mgr.get_adapter_path(cartridge)
+                    print(
+                        f"  [ADAPTER] LoRA weights cached locally for "
+                        f"'{cartridge.metadata.name}': {weight_path}"
+                    )
+                else:
+                    # Weights not cached; check if lora-only (no harness_patch fallback)
+                    if spec.type == "lora" and not spec.harness_patch:
+                        print(
+                            f"  [ADAPTER] LoRA-only cartridge '{cartridge.metadata.name}' "
+                            f"has no cached weights and no harness patch — skipping."
+                        )
+                        skipped.append(binding.cartridge)
+                        continue
+                    # Hybrid or harness-patch fallback: continue without weights
+                    print(
+                        f"  [ADAPTER] LoRA weights not cached for "
+                        f"'{cartridge.metadata.name}'; applying harness patch only (graceful fallback)."
+                    )
+
+            # Attach weight_path metadata into binding overrides if we have weights
+            effective_binding: Optional[AdapterBinding] = binding
+            if weight_path:
+                overrides_with_path = dict(binding.overrides or {})
+                overrides_with_path["__lora_weight_path__"] = weight_path
+                effective_binding = AdapterBinding(
+                    cartridge=binding.cartridge,
+                    version=binding.version,
+                    enabled=binding.enabled,
+                    priority=binding.priority,
+                    mode=binding.mode,
+                    overrides=overrides_with_path,
+                )
+
+            resolved.append((cartridge, effective_binding))
+
+            mount_mode = "lora+patch" if weight_path else "patch"
+            print(
+                f"  [ADAPTER] Mounting cartridge '{cartridge.metadata.name}' "
+                f"v{cartridge.metadata.version} [{mount_mode}] on {type(self.llm).__name__}."
+            )
+            self.write_audit_log(
+                child_id=child_id,
+                action_type="adapter_cartridge_mounted",
+                details=(
+                    f"Mounted cartridge '{cartridge.metadata.name}' "
+                    f"v{cartridge.metadata.version} onto {type(self.llm).__name__} "
+                    f"(mode={mount_mode}, binding_mode={binding.mode})."
+                ),
+                meta={
+                    "cartridge_name": cartridge.metadata.name,
+                    "cartridge_version": cartridge.metadata.version,
+                    "cartridge_type": spec.type,
+                    "mount_mode": mount_mode,
+                    "binding_mode": binding.mode,
+                    "binding_priority": binding.priority,
+                    "weight_path": weight_path,
+                    "harness_patch_keys": list(spec.harness_patch.keys()),
+                },
+            )
+
+        if skipped:
+            self.write_audit_log(
+                child_id=child_id,
+                action_type="adapter_cartridge_skipped",
+                details=f"Skipped {len(skipped)} cartridge(s) due to missing registry entries or weights.",
+                meta={"skipped": skipped},
+            )
+
+        if resolved:
+            self.llm.mount_cartridges(resolved)
 
     def write_audit_log(self, child_id: str, action_type: str, details: str, meta: Dict[str, Any] = None):
         """
@@ -430,6 +574,10 @@ class AutonomousJobCardEngine:
             self.privacy_guard = PrivacyGuard(restricted_paths=restricted)
         if self.sandbox is None:
             self.sandbox = SandboxRunner()
+
+        # Adapter Cartridge Hot-Swapping: mount cartridges from mother onto the LLM adapter
+        if mother.attached_cartridges:
+            self._mount_cartridges_on_adapter(mother=mother, child_id=child.id)
 
         # Security evaluation
         paths_to_be_edited = [d.get("path") for d in child.deliverables]

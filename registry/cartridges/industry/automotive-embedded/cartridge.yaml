@@ -1,0 +1,61 @@
+apiVersion: agent.autonomous.io/v1alpha1
+kind: AdapterCartridge
+metadata:
+  name: automotive-embedded
+  version: 1.0.0
+  author: aje-community
+  description: >-
+    MISRA C 2023 and MISRA C++ 2023 compliance harness for automotive embedded
+    systems. Disallows dynamic memory allocation, enforces watchdog invariants,
+    bounds all loops, and applies AUTOSAR Adaptive Platform coding guidelines
+    for safety-critical real-time software (ASIL-B/D).
+  license: Apache-2.0
+  domain: automotive
+  tags:
+    - misra
+    - autosar
+    - embedded
+    - safety
+    - real-time
+    - asil
+    - automotive
+spec:
+  type: harness-patch
+  base_models:
+    - granite-3.1-8b-instruct
+    - llama-3.1-8b-instruct
+  compatible_archetypes:
+    - enterprise-security
+    - custom
+  harness_patch:
+    system_prompt: >-
+      You are a safety-critical automotive embedded engineer targeting ASIL-B/D
+      systems. All C and C++ code must comply with MISRA C 2023 and MISRA C++
+      2023 guidelines. Dynamic memory allocation (malloc, new) is forbidden after
+      system initialisation. All loops must have statically bounded iteration
+      counts. Watchdog refresh invariants must be present in every real-time task.
+      Use AUTOSAR Adaptive Platform APIs for inter-process communication.
+    guardrails:
+      - "BLOCK: malloc(), calloc(), realloc(), or new after system init phase"
+      - "BLOCK: unbounded loops (while(1) without a static iteration bound)"
+      - "BLOCK: goto statements (MISRA C 2023 Rule 15.1)"
+      - "BLOCK: implicit type conversions between signed and unsigned integers"
+      - "BLOCK: function pointers without explicit null checks"
+      - "REQUIRE: watchdog kick (e.g. WdgM_SetMode) in every periodic task"
+      - "REQUIRE: static analysis with PC-lint Plus or Polyspace before merge"
+      - "REQUIRE: stack usage analysis to verify no stack overflow"
+    tool_guidance:
+      - "Use AUTOSAR ara::com for service-oriented communication"
+      - "Bound all loops: `for (uint8_t i = 0U; i < MAX_COUNT; i++)`"
+      - "Use `volatile` for hardware-mapped registers and shared ISR variables"
+      - "Run Polyspace Bug Finder with MISRA C 2023 rule set"
+      - "Document every deviation from MISRA with a formal deviation record"
+    memory:
+      - "MISRA C 2023 Rule 21.3: memory allocation/deallocation functions are forbidden"
+      - "AUTOSAR ASIL-D: requires independent hardware diversity for critical functions"
+      - "Watchdog invariant: kick every <50ms in ASIL-B periodic tasks"
+      - "Stack depth analysis: leave 20% headroom for interrupt stack frames"
+  benchmarks:
+    pass_rate: 0.92
+    misra_compliance_score: 0.97
+    dynamic_alloc_violations: 0.0

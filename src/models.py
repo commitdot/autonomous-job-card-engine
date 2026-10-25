@@ -1,5 +1,6 @@
 import yaml
 import os
+import re
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field, asdict
 
@@ -38,6 +39,179 @@ class GovernancePolicies:
     max_recursion_depth: int = 3
 
 
+# ---------------------------------------------------------------------------
+# Adapter Cartridge models (cartridge.yaml)
+# ---------------------------------------------------------------------------
+
+CARTRIDGE_API_VERSION = "agent.autonomous.io/v1alpha1"
+CARTRIDGE_KIND = "AdapterCartridge"
+CARTRIDGE_TYPES = ("harness-patch", "lora", "hybrid")
+BINDING_MODES = ("auto", "lora", "patch")
+HARNESS_PATCH_KEYS = (
+    "system_prompt", "guardrails", "memory", "tool_guidance",
+    "subagents", "skills", "scripts", "plugins", "metadata",
+)
+
+_NAME_RE = re.compile(r"^[a-z0-9]+(?:[a-z0-9._-]*[a-z0-9])?$")
+_SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+class CartridgeValidationError(ValueError):
+    """Raised when a cartridge manifest or adapter binding fails schema validation."""
+
+
+@dataclass
+class CartridgeMetadata:
+    name: str
+    version: str = "0.1.0"
+    author: str = ""
+    description: str = ""
+    license: str = ""
+    domain: str = ""
+    tags: List[str] = field(default_factory=list)
+
+
+@dataclass
+class CartridgeSpec:
+    type: str = "harness-patch"  # harness-patch | lora | hybrid
+    base_models: List[str] = field(default_factory=list)
+    compatible_archetypes: List[str] = field(default_factory=list)
+    # LoRA weights (Hugging Face Hub)
+    lora_repo_id: str = ""
+    lora_filename: str = ""
+    lora_sha256: str = ""
+    lora_rank: int = 0
+    # Zero-weight YAML harness patch (keys mirror HarnessConfig fields)
+    harness_patch: Dict[str, Any] = field(default_factory=dict)
+    # Accuracy benchmarks, e.g. {"pass_rate": 0.92}
+    benchmarks: Dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class AdapterBinding:
+    """Reference from a Mother Card to an adapter cartridge."""
+    cartridge: str
+    version: str = "latest"
+    enabled: bool = True
+    priority: int = 0
+    mode: str = "auto"  # auto | lora | patch
+    overrides: Dict[str, Any] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        if not isinstance(self.cartridge, str) or not _NAME_RE.match(self.cartridge):
+            raise CartridgeValidationError(f"Invalid cartridge name in binding: {self.cartridge!r}")
+        if self.version != "latest" and not _SEMVER_RE.match(str(self.version)):
+            raise CartridgeValidationError(f"Invalid binding version: {self.version!r}")
+        if self.mode not in BINDING_MODES:
+            raise CartridgeValidationError(f"Invalid binding mode: {self.mode!r} (expected one of {BINDING_MODES})")
+        if not isinstance(self.priority, int) or isinstance(self.priority, bool):
+            raise CartridgeValidationError("Binding priority must be an integer")
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "AdapterBinding":
+        if isinstance(data, str):
+            data = {"cartridge": data}
+        if not isinstance(data, dict) or "cartridge" not in data:
+            raise CartridgeValidationError("Adapter binding must be a string or a mapping with 'cartridge'")
+        binding = cls(
+            cartridge=data["cartridge"],
+            version=str(data.get("version", "latest")),
+            enabled=data.get("enabled", True),
+            priority=data.get("priority", 0),
+            mode=data.get("mode", "auto"),
+            overrides=data.get("overrides") or {},
+        )
+        binding.validate()
+        return binding
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class AdapterCartridge:
+    metadata: CartridgeMetadata
+    spec: CartridgeSpec = field(default_factory=CartridgeSpec)
+
+    def validate(self) -> None:
+        md, sp = self.metadata, self.spec
+        if not isinstance(md.name, str) or not _NAME_RE.match(md.name):
+            raise CartridgeValidationError(f"Invalid cartridge name: {md.name!r}")
+        if not _SEMVER_RE.match(str(md.version)):
+            raise CartridgeValidationError(f"Invalid cartridge version: {md.version!r} (expected semver)")
+        if sp.type not in CARTRIDGE_TYPES:
+            raise CartridgeValidationError(f"Invalid cartridge type: {sp.type!r} (expected one of {CARTRIDGE_TYPES})")
+        if sp.type in ("lora", "hybrid"):
+            if not sp.lora_repo_id or not sp.lora_filename:
+                raise CartridgeValidationError(f"Cartridge type '{sp.type}' requires lora_repo_id and lora_filename")
+        if sp.lora_sha256 and not _SHA256_RE.match(sp.lora_sha256):
+            raise CartridgeValidationError("lora_sha256 must be a 64-character hex digest")
+        if sp.type in ("harness-patch", "hybrid") and not sp.harness_patch:
+            raise CartridgeValidationError(f"Cartridge type '{sp.type}' requires a non-empty harness_patch")
+        unknown = set(sp.harness_patch) - set(HARNESS_PATCH_KEYS)
+        if unknown:
+            raise CartridgeValidationError(f"Unknown harness_patch keys: {sorted(unknown)}")
+        for key, value in sp.benchmarks.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise CartridgeValidationError(f"Benchmark '{key}' must be numeric")
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AdapterCartridge":
+        if not isinstance(data, dict):
+            raise CartridgeValidationError("Cartridge manifest must be a mapping")
+        if data.get("kind", CARTRIDGE_KIND) != CARTRIDGE_KIND:
+            raise CartridgeValidationError(f"Unexpected kind: {data.get('kind')!r} (expected {CARTRIDGE_KIND})")
+        md_data = data.get("metadata") or {}
+        if not md_data.get("name"):
+            raise CartridgeValidationError("metadata.name is required")
+        sp_data = data.get("spec") or {}
+        cartridge = cls(
+            metadata=CartridgeMetadata(
+                name=md_data["name"],
+                version=str(md_data.get("version", "0.1.0")),
+                author=md_data.get("author", ""),
+                description=md_data.get("description", ""),
+                license=md_data.get("license", ""),
+                domain=md_data.get("domain", ""),
+                tags=list(md_data.get("tags") or []),
+            ),
+            spec=CartridgeSpec(
+                type=sp_data.get("type", "harness-patch"),
+                base_models=list(sp_data.get("base_models") or []),
+                compatible_archetypes=list(sp_data.get("compatible_archetypes") or []),
+                lora_repo_id=sp_data.get("lora_repo_id", ""),
+                lora_filename=sp_data.get("lora_filename", ""),
+                lora_sha256=sp_data.get("lora_sha256", ""),
+                lora_rank=sp_data.get("lora_rank", 0),
+                harness_patch=dict(sp_data.get("harness_patch") or {}),
+                benchmarks=dict(sp_data.get("benchmarks") or {}),
+            ),
+        )
+        cartridge.validate()
+        return cartridge
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "apiVersion": CARTRIDGE_API_VERSION,
+            "kind": CARTRIDGE_KIND,
+            "metadata": asdict(self.metadata),
+            "spec": asdict(self.spec),
+        }
+
+    @classmethod
+    def from_yaml(cls, path: str) -> "AdapterCartridge":
+        with open(path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        return cls.from_dict(data)
+
+    def to_yaml(self, path: str):
+        self.validate()
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(self.to_dict(), f, default_flow_style=False)
+
+
 @dataclass
 class MotherCard:
     id: str
@@ -68,6 +242,9 @@ class MotherCard:
     active_children: List[str] = field(default_factory=list)
     completed_children: List[str] = field(default_factory=list)
     backlog_queue: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Adapter cartridges attached to this Mother Card (optional; omitted from YAML when empty)
+    attached_cartridges: List[AdapterBinding] = field(default_factory=list)
 
     @classmethod
     def from_yaml(cls, path: str) -> "MotherCard":
@@ -126,7 +303,8 @@ class MotherCard:
             total_spend_usd=status.get("total_spend_usd", 0.0),
             active_children=status.get("active_children", []),
             completed_children=status.get("completed_children", []),
-            backlog_queue=status.get("backlog_queue", [])
+            backlog_queue=status.get("backlog_queue", []),
+            attached_cartridges=[AdapterBinding.from_dict(b) for b in (spec.get("attached_cartridges") or [])],
         )
 
     def to_yaml(self, path: str):
@@ -160,6 +338,9 @@ class MotherCard:
                 "backlog_queue": self.backlog_queue
             }
         }
+        if self.attached_cartridges:
+            data["spec"]["attached_cartridges"] = [b.to_dict() for b in self.attached_cartridges]
+
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
             yaml.safe_dump(data, f, default_flow_style=False)

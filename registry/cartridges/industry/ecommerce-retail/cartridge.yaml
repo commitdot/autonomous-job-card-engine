@@ -1,0 +1,63 @@
+apiVersion: agent.autonomous.io/v1alpha1
+kind: AdapterCartridge
+metadata:
+  name: ecommerce-retail
+  version: 1.0.0
+  author: aje-community
+  description: >-
+    Idempotent payment processing, atomic inventory state machines, and
+    HMAC-SHA256 webhook signature verification harness for high-volume
+    e-commerce and retail platforms. Prevents double-charges, inventory
+    race conditions, and spoofed payment gateway callbacks.
+  license: Apache-2.0
+  domain: ecommerce
+  tags:
+    - payments
+    - idempotency
+    - inventory
+    - hmac
+    - webhooks
+    - ecommerce
+    - retail
+spec:
+  type: harness-patch
+  base_models:
+    - granite-3.1-8b-instruct
+    - qwen2.5-coder-7b
+    - llama-3.1-8b-instruct
+  compatible_archetypes:
+    - saas-backend
+    - enterprise-security
+    - custom
+  harness_patch:
+    system_prompt: >-
+      You are an e-commerce platform engineer. All payment operations must be
+      idempotent — every charge endpoint must accept and store an idempotency key
+      and replay the cached response on duplicate requests. Inventory mutations
+      must use atomic compare-and-swap operations (optimistic locking or Redis
+      WATCH/MULTI/EXEC). All incoming webhook payloads from payment gateways
+      must be verified with HMAC-SHA256 signatures before processing.
+    guardrails:
+      - "BLOCK: payment charge endpoints without idempotency key validation"
+      - "BLOCK: inventory decrement without atomic read-modify-write (no SELECT then UPDATE)"
+      - "BLOCK: processing webhook payloads without HMAC signature verification"
+      - "BLOCK: returning order total as a float — use Decimal"
+      - "BLOCK: storing raw card numbers or CVV in any data store"
+      - "REQUIRE: idempotency key stored in Redis with 24-hour TTL"
+      - "REQUIRE: inventory state machine transitions via explicit status enum"
+      - "REQUIRE: webhook replay protection via event_id deduplication"
+    tool_guidance:
+      - "Use `hmac.compare_digest(expected_sig, received_sig)` for constant-time comparison"
+      - "Implement inventory locking: `UPDATE inventory SET qty=qty-1 WHERE qty>0 AND id=?`"
+      - "Cache idempotency responses: `redis.set(key, response_json, ex=86400, nx=True)`"
+      - "Use Stripe/PayPal SDK idempotency headers: `Idempotency-Key: <uuid>`"
+      - "Model order state machine: PENDING → CONFIRMED → SHIPPED → DELIVERED → REFUNDED"
+    memory:
+      - "Idempotency window: 24 hours for payment deduplication"
+      - "Inventory atomicity: use Postgres SELECT FOR UPDATE or Redis WATCH"
+      - "HMAC-SHA256 Stripe webhook: compare against X-Stripe-Signature header"
+      - "PCI-DSS Req 3.2: never store CVV after authorisation"
+  benchmarks:
+    pass_rate: 0.93
+    idempotency_correctness: 1.0
+    hmac_verification_coverage: 1.0

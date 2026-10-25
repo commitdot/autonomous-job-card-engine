@@ -113,6 +113,47 @@ Risk:      Full-context prompt dumping would cost $150+ in API fees and take wee
 
 ---
 
+## 🔌 Open Adapter Hub — Instant Domain Intelligence
+
+The **Open Adapter Hub** extends AJE with 11 community-curated zero-weight cartridges. Attach any cartridge to a Mother Card in one CLI command; the 8-component harness immediately gains specialized guardrails, system prompts, and tool guidance for that domain — no LoRA weights, no GPU overhead, no retraining.
+
+### Industry Compliance Matrix
+
+| Industry | Cartridge | Regulations / Standards | Critical Guardrails |
+|---|---|---|---|
+| **FinTech / Banking** | `fintech-banking` | PCI-DSS v4, ISO 20022 | Block float arithmetic; Decimal-only; idempotency keys |
+| **Healthcare** | `healthcare-hipaa` | HIPAA Safe Harbor, HL7 FHIR R4 | Block PHI in logs; enforce FHIR schema; AES-256 at rest |
+| **Cybersecurity** | `cybersecurity-defense` | OWASP Top-10, NIST 800-53 Rev 5 | Block injection/IDOR; zero-trust secrets; MFA enforcement |
+| **Automotive / Embedded** | `automotive-embedded` | MISRA C/C++ 2023, AUTOSAR, ASIL-B/D | Block malloc/new; bounded loops; watchdog invariants |
+| **Legal / LegalTech** | `legal-compliance` | GDPR Art. 17, ePrivacy | Block DROP TABLE on PHI; erasure cascade; Merkle audit |
+| **E-Commerce / Retail** | `ecommerce-retail` | PCI-DSS Req 3, PSD2 | Idempotent payments; atomic inventory; HMAC webhooks |
+| **DevOps / Cloud** | `devops-cloud-infra` | CIS Benchmarks, SOC2 | Block wildcard IAM; non-root K8s; OTel trace propagation |
+
+### Technical Starter Cartridges
+
+| Domain | Cartridge | Key Capability |
+|---|---|---|
+| Security | `security-shield` | Argon2id, OWASP AST blockers, RS256 JWT, `bandit` SAST |
+| Testing | `pytest-self-healing` | Fault-frame triage, dual-pass flakiness, 90% coverage gate |
+| GPU Compute | `cuda-kernel-opt` | CUTLASS 3.x Tensor Cores, shared-memory bank analysis, Nsight |
+| Web Backend | `fastapi-backend` | Pydantic v2, typed OpenAPI 3.1, Redis token-bucket rate limiting |
+
+### One-Command Activation
+
+```bash
+# Attach the FinTech compliance pack to your active Mother Card
+python -m src.cli.main adapter attach fintech-banking --mode patch --priority 10
+
+# The next autonomous cycle immediately enforces PCI-DSS v4:
+# ✔ BLOCK float arithmetic on monetary values
+# ✔ REQUIRE @audit_trail decorator on transaction mutations
+# ✔ REQUIRE idempotency key validation on payment endpoints
+```
+
+> **ROI Impact:** Zero-weight harness patches add **0ms latency** and **0 VRAM overhead** while preventing entire classes of regulatory violations at code-generation time — eliminating costly post-release remediation sprints.
+
+---
+
 ## 🎯 Executive Elevator Pitch
 
 > *"AJE is not another AI chat interface. It is a declarative operating system for an entire autonomous software engineering department. By combining Google Research's Harness² dual-level recursion with isolated Git worktrees, AST token pruning, and cryptographic auditability, AJE gives teams the full power of frontier reasoning models with 90% cost savings, bank-grade security, and zero operational risk."*

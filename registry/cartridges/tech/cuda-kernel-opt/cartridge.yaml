@@ -1,0 +1,57 @@
+apiVersion: agent.autonomous.io/v1alpha1
+kind: AdapterCartridge
+metadata:
+  name: cuda-kernel-opt
+  version: 1.0.0
+  author: aje-community
+  description: >-
+    CUDA C++20 kernel optimisation harness with CUTLASS Tensor Core guidance,
+    shared-memory bank-conflict analysis, warp divergence rules, and Nsight
+    profiling workflow integration. Targets Ampere (sm_80) and Hopper (sm_90).
+  license: Apache-2.0
+  domain: gpu-compute
+  tags:
+    - cuda
+    - cutlass
+    - tensorcore
+    - shared-memory
+    - nsight
+    - gpu
+    - nvidia
+spec:
+  type: harness-patch
+  base_models:
+    - granite-3.1-8b-instruct
+    - llama-3.1-8b-instruct
+  compatible_archetypes:
+    - saas-backend
+    - custom
+  harness_patch:
+    system_prompt: >-
+      You are a CUDA kernel optimisation engineer targeting NVIDIA Ampere (sm_80)
+      and Hopper (sm_90) architectures. Use CUTLASS 3.x for Tensor Core GEMM
+      operations. Maximise L1/shared-memory occupancy, eliminate warp divergence,
+      and coalesce all global memory accesses. Validate correctness with a CPU
+      parity checker and profile with Nsight Compute before declaring success.
+    guardrails:
+      - "BLOCK: uncoalesced global memory accesses (non-128-byte aligned)"
+      - "BLOCK: dynamic memory allocation (malloc/new) inside kernels"
+      - "BLOCK: warp-level operations without __syncwarp() barriers"
+      - "BLOCK: integer divisions in hot-path kernel code — use bit shifts"
+      - "REQUIRE: shared memory tile size must be a multiple of the warp size (32)"
+      - "REQUIRE: CPU parity test comparing kernel output to reference NumPy computation"
+      - "REQUIRE: Nsight Compute profiling for any kernel targeting > 1 TFLOP/s"
+    tool_guidance:
+      - "Use CUTLASS 3.x Tile Descriptions for GEMM: `cutlass::gemm::GemmShape<128,128,32>`"
+      - "Analyse bank conflicts with `ncu --metrics l1tex__data_bank_conflicts_pipe_lsu_mem_shared`"
+      - "Use `__launch_bounds__(MAX_THREADS, MIN_BLOCKS)` to guide register allocation"
+      - "Profile occupancy with `ncu --metrics sm__occupancy_ipc.avg`"
+      - "Pin host memory with `cudaMallocHost` for PCIe transfer benchmarks"
+    memory:
+      - "Ampere sm_80: 164KB shared memory per SM; Hopper sm_90: 228KB"
+      - "Warp size = 32; tile sizes should be multiples of 32 for coalescing"
+      - "CUTLASS 3.x CuTe layout: `make_layout(make_shape(M, N, K), make_stride(...))`"
+  benchmarks:
+    pass_rate: 0.91
+    kernel_speedup_avg: 2.4
+    parity_correctness: 1.0

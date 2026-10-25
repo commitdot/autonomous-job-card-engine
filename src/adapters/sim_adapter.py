@@ -1,6 +1,6 @@
 import os
 import textwrap
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .base import BaseLLMAdapter
 from .harness_mixin import (
@@ -9,6 +9,7 @@ from .harness_mixin import (
     HarnessConfig,
     HarnessMixin,
 )
+from .patch_loader import apply_cartridges
 from ..sim_llm import SimLLM
 
 
@@ -28,6 +29,24 @@ class SimAdapter(BaseLLMAdapter, HarnessMixin):
     def __init__(self, workspace_root: str):
         self._sim = SimLLM(workspace_root=workspace_root)
         self.workspace_root = workspace_root
+        self._mounted_harness: Optional[HarnessConfig] = None
+
+    # ------------------------------------------------------------------
+    # Cartridge hot-swapping
+    # ------------------------------------------------------------------
+
+    def mount_cartridges(
+        self,
+        cartridges: Sequence[Tuple[Any, Optional[Any]]],
+    ) -> None:
+        """Merge all (cartridge, binding) pairs into a single HarnessConfig."""
+        self._mounted_harness = apply_cartridges(HarnessConfig(), list(cartridges))
+
+    def get_mounted_harness_context(self) -> str:
+        """Return the rendered harness prompt block for mounted cartridges."""
+        if self._mounted_harness is None:
+            return ""
+        return self._mounted_harness.render_prompt_block()
 
     # ------------------------------------------------------------------
     # BaseLLMAdapter interface
@@ -44,8 +63,15 @@ class SimAdapter(BaseLLMAdapter, HarnessMixin):
     ) -> Dict[str, Any]:
         # SimLLM is a deterministic stub and does not use design_system,
         # but we accept the param to satisfy the BaseLLMAdapter interface.
+        # Prepend any mounted cartridge harness context to the objective.
+        harness_ctx = self.get_mounted_harness_context()
+        augmented_objective = (
+            f"{harness_ctx}\n\n{tactical_objective}".strip()
+            if harness_ctx
+            else tactical_objective
+        )
         return self._sim.execute_child_card(
-            tactical_objective=tactical_objective,
+            tactical_objective=augmented_objective,
             deliverables=deliverables,
             iteration=iteration,
             workspace_root=execution_root,

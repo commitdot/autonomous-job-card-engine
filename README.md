@@ -394,6 +394,98 @@ status:
 
 ---
 
+## 🔌 Open Adapter Hub — Community Cartridge Catalog
+
+AJE includes an **Open Adapter Hub**: a community-driven registry of zero-weight YAML Harness Patches that inject specialized domain guardrails, system prompts, and tool guidance into any Mother Card — no LoRA weights required, no GPU memory overhead.
+
+### Cartridge Architecture
+
+```mermaid
+flowchart LR
+    subgraph Hub ["Open Adapter Hub (registry/cartridges/)"]
+        T1["🔐 security-shield"]
+        T2["🧪 pytest-self-healing"]
+        T3["⚡ cuda-kernel-opt"]
+        T4["🚀 fastapi-backend"]
+        I1["💳 fintech-banking"]
+        I2["🏥 healthcare-hipaa"]
+        I3["🛡️ cybersecurity-defense"]
+        I4["🚗 automotive-embedded"]
+        I5["⚖️ legal-compliance"]
+        I6["🛒 ecommerce-retail"]
+        I7["☁️ devops-cloud-infra"]
+    end
+
+    subgraph AJE ["AJE Engine"]
+        Mother["Mother Card"]
+        Harness["8-Component Harness\n(system_prompt · guardrails · memory\ntool_guidance · scripts · skills)"]
+        Adapter["Model Adapter\n(Ollama / watsonx.ai / Sim)"]
+    end
+
+    T1 & T2 & T3 & T4 --> Mother
+    I1 & I2 & I3 & I4 & I5 & I6 & I7 --> Mother
+    Mother --> Harness --> Adapter
+```
+
+### 📦 Technical Starter Cartridges (`registry/cartridges/tech/`)
+
+| Cartridge | Domain | Key Rules | pass_rate |
+|---|---|---|---|
+| **[security-shield](registry/cartridges/tech/security-shield/cartridge.yaml)** | Security | Argon2id, OWASP Top-10 AST blockers, RS256 JWT, secrets scan | 96% |
+| **[pytest-self-healing](registry/cartridges/tech/pytest-self-healing/cartridge.yaml)** | Testing | Fault-frame analysis, dual-pass flakiness, 90% coverage gate | 94% |
+| **[cuda-kernel-opt](registry/cartridges/tech/cuda-kernel-opt/cartridge.yaml)** | GPU Compute | CUTLASS 3.x, shared-memory tuning, Nsight workflow, Ampere/Hopper | 91% |
+| **[fastapi-backend](registry/cartridges/tech/fastapi-backend/cartridge.yaml)** | Web Backend | Pydantic v2, typed OpenAPI 3.1, Redis rate limiting, async SQLAlchemy | 93% |
+
+### 🏭 Industry Compliance Cartridges (`registry/cartridges/industry/`)
+
+| Cartridge | Industry | Regulations Enforced | pass_rate |
+|---|---|---|---|
+| **[fintech-banking](registry/cartridges/industry/fintech-banking/cartridge.yaml)** | FinTech | PCI-DSS v4, Decimal arithmetic, ISO 20022 schemas | 95% |
+| **[healthcare-hipaa](registry/cartridges/industry/healthcare-hipaa/cartridge.yaml)** | Healthcare | HIPAA Safe Harbor PHI de-id, HL7 FHIR R4, AES-256 at rest | 97% |
+| **[cybersecurity-defense](registry/cartridges/industry/cybersecurity-defense/cartridge.yaml)** | Cybersecurity | OWASP Top-10, NIST 800-53 Rev 5, zero-trust secrets vault | 95% |
+| **[automotive-embedded](registry/cartridges/industry/automotive-embedded/cartridge.yaml)** | Automotive | MISRA C/C++ 2023, ASIL-B/D, no dynamic alloc, watchdog invariants | 92% |
+| **[legal-compliance](registry/cartridges/industry/legal-compliance/cartridge.yaml)** | LegalTech | GDPR Art. 17 erasure cascade, Merkle contract trails, safe migrations | 94% |
+| **[ecommerce-retail](registry/cartridges/industry/ecommerce-retail/cartridge.yaml)** | E-Commerce | Idempotent payments, atomic inventory, HMAC webhook verification | 93% |
+| **[devops-cloud-infra](registry/cartridges/industry/devops-cloud-infra/cartridge.yaml)** | DevOps/Cloud | Terraform least-priv RBAC, non-root K8s, OTel W3C propagation | 93% |
+
+### 🚀 `aje adapter` CLI Workflow
+
+```bash
+# Discover cartridges from the community catalog
+python -m src.cli.main adapter search --industry fintech
+
+# Pull a cartridge manifest into your workspace
+python -m src.cli.main adapter pull fintech-banking
+
+# Inspect a cartridge (metadata, guardrails, benchmarks)
+python -m src.cli.main adapter info fintech-banking
+
+# Attach a cartridge to the active Mother Card
+python -m src.cli.main adapter attach fintech-banking --mode patch --priority 10
+
+# Verify a cartridge passes all schema, guardrail, and benchmark checks
+python -m src.cli.main adapter test fintech-banking
+
+# List all installed cartridges with pass-rate badges
+python -m src.cli.main adapter list
+
+# Scaffold a new community cartridge for contribution
+python -m src.cli.main adapter init my-domain-pack \
+  --type harness-patch \
+  --industry myindustry \
+  --author "Your Name" \
+  --description "My domain compliance pack"
+```
+
+### 🤝 Contributing a Cartridge
+
+1. **Scaffold** — `aje adapter init <name> --output registry/cartridges/<category>/<name>/`
+2. **Edit** — fill in `cartridge.yaml` with your domain guardrails, system prompt, and benchmarks.
+3. **Test** — `aje adapter test <name>` must report all PASS before submission.
+4. **PR** — open a pull request to `registry/cartridges/` — the catalog auto-discovers any `cartridge.yaml` within that tree.
+
+---
+
 ## 🛠️ CLI Command Reference
 
 ```bash

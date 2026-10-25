@@ -28,7 +28,7 @@ import re
 import json
 import uuid
 import textwrap
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Sequence, Tuple
 
 from .base import BaseLLMAdapter
 from .harness_mixin import (
@@ -37,6 +37,7 @@ from .harness_mixin import (
     HarnessConfig,
     HarnessMixin,
 )
+from .patch_loader import apply_cartridges
 from ..ast_skeleton import ASTSkeletonizer
 from ..sandbox import extract_fault_frame
 
@@ -81,10 +82,28 @@ class OllamaAdapter(BaseLLMAdapter, HarnessMixin):
         self.host  = host  or os.getenv("OLLAMA_HOST",  "http://localhost:11434")
         self._mcp  = mcp_client  # AJEMcpClient instance, or None
         self._skeletonizer = ASTSkeletonizer(workspace_root=self.workspace_root)
+        self._mounted_harness: Optional[HarnessConfig] = None
 
         print(f"[OLLAMA] Adapter initialised — model: {self.model} @ {self.host}")
         if self._mcp:
             print("[OLLAMA] MCP self-improvement client attached.")
+
+    # ------------------------------------------------------------------
+    # Cartridge hot-swapping
+    # ------------------------------------------------------------------
+
+    def mount_cartridges(
+        self,
+        cartridges: Sequence[Tuple[Any, Optional[Any]]],
+    ) -> None:
+        """Merge all (cartridge, binding) pairs into a single HarnessConfig."""
+        self._mounted_harness = apply_cartridges(HarnessConfig(), list(cartridges))
+
+    def get_mounted_harness_context(self) -> str:
+        """Return the rendered harness prompt block for mounted cartridges."""
+        if self._mounted_harness is None:
+            return ""
+        return self._mounted_harness.render_prompt_block()
 
     # ------------------------------------------------------------------
     # Public interface (implements BaseLLMAdapter)
@@ -121,8 +140,14 @@ class OllamaAdapter(BaseLLMAdapter, HarnessMixin):
                 except Exception:
                     pass
 
+            harness_ctx = self.get_mounted_harness_context()
+            augmented_objective = (
+                f"{harness_ctx}\n\n{tactical_objective}".strip()
+                if harness_ctx
+                else tactical_objective
+            )
             prompt = self._build_code_prompt(
-                tactical_objective=tactical_objective,
+                tactical_objective=augmented_objective,
                 rel_path=rel_path,
                 description=description,
                 iteration=iteration,

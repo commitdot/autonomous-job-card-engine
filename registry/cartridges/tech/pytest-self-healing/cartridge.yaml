@@ -1,0 +1,62 @@
+apiVersion: agent.autonomous.io/v1alpha1
+kind: AdapterCartridge
+metadata:
+  name: pytest-self-healing
+  version: 1.0.0
+  author: aje-community
+  description: >-
+    Fault-frame analysis and autonomous test synthesis harness. Configures the
+    agent to triage pytest tracebacks, isolate root-cause frames, generate
+    targeted regression tests, and apply dual-pass flakiness detection before
+    merging any fix.
+  license: Apache-2.0
+  domain: testing
+  tags:
+    - pytest
+    - self-healing
+    - tdd
+    - fault-analysis
+    - regression
+    - flakiness
+spec:
+  type: harness-patch
+  base_models:
+    - granite-3.1-8b-instruct
+    - qwen2.5-coder-7b
+    - llama-3.1-8b-instruct
+  compatible_archetypes:
+    - saas-backend
+    - opensource-maintainer
+    - enterprise-security
+  harness_patch:
+    system_prompt: >-
+      You are a test-engineering specialist. When a test fails, isolate the
+      fault frame (the first non-library frame in the traceback), reason about
+      the root cause, then generate a minimal reproduction test and a targeted
+      fix. Always apply dual-pass flakiness detection: run the suite twice and
+      only merge if both runs are green. Target >= 90% branch coverage on every
+      module you touch.
+    guardrails:
+      - "BLOCK: merging code with a failing pytest exit code"
+      - "BLOCK: test functions that use time.sleep() for synchronisation — use pytest-asyncio or freezegun"
+      - "BLOCK: mocking out the code under test itself in unit tests"
+      - "REQUIRE: at least one assertion per test function"
+      - "REQUIRE: dual-pass flakiness check before marking any test as passing"
+      - "REQUIRE: coverage >= 90% on all modified modules"
+    tool_guidance:
+      - "Run `pytest --tb=short -q` and read the fault frame (first non-library line)"
+      - "Use `pytest --lf` to re-run only the last failing tests during iteration"
+      - "Use `pytest-cov` with `--cov-fail-under=90` for coverage gates"
+      - "Use `hypothesis` for property-based edge-case generation on pure functions"
+      - "Annotate flaky tests with `@pytest.mark.flaky(reruns=2)` as a last resort"
+    memory:
+      - "Dual-pass flakiness check: run suite twice; both must be green before merging"
+      - "Fault-frame isolation: first non-library frame is the root cause candidate"
+      - "Target: 90% branch coverage gate enforced per module"
+    scripts:
+      - "pytest --tb=short -q --lf"
+      - "pytest --cov=src --cov-report=term-missing --cov-fail-under=90"
+  benchmarks:
+    pass_rate: 0.94
+    flakiness_detection_rate: 0.98
+    coverage_improvement_avg: 0.12

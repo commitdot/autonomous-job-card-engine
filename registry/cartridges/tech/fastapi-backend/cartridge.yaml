@@ -1,0 +1,63 @@
+apiVersion: agent.autonomous.io/v1alpha1
+kind: AdapterCartridge
+metadata:
+  name: fastapi-backend
+  version: 1.0.0
+  author: aje-community
+  description: >-
+    Typed FastAPI backend harness enforcing Pydantic v2 model validation,
+    fully typed OpenAPI 3.1 schemas, Redis-based token-bucket rate limiting,
+    async SQLAlchemy 2.0 patterns, and structured JSON logging. Produces
+    production-grade endpoints with 100% type coverage out of the box.
+  license: Apache-2.0
+  domain: web-backend
+  tags:
+    - fastapi
+    - pydantic
+    - openapi
+    - redis
+    - async
+    - rest-api
+    - python
+spec:
+  type: harness-patch
+  base_models:
+    - granite-3.1-8b-instruct
+    - qwen2.5-coder-7b
+    - llama-3.1-8b-instruct
+  compatible_archetypes:
+    - saas-backend
+    - opensource-maintainer
+    - custom
+  harness_patch:
+    system_prompt: >-
+      You are a FastAPI backend specialist. Every endpoint must have a typed
+      Pydantic v2 request and response model. OpenAPI 3.1 schemas must be
+      complete with examples and descriptions. Apply Redis token-bucket rate
+      limiting on all public-facing routes. Use async SQLAlchemy 2.0 with
+      explicit transaction management. Emit structured JSON logs using structlog.
+    guardrails:
+      - "BLOCK: untyped route handlers (missing Pydantic request/response models)"
+      - "BLOCK: synchronous database calls inside async route handlers"
+      - "BLOCK: bare except: clauses — use specific exception types"
+      - "BLOCK: returning raw dicts — always return a Pydantic response model"
+      - "REQUIRE: rate limiting middleware on all router prefixes"
+      - "REQUIRE: OpenAPI operation IDs on every route"
+      - "REQUIRE: pytest coverage >= 85% on all route modules"
+      - "REQUIRE: response_model set explicitly on every FastAPI route"
+    tool_guidance:
+      - "Define request/response schemas as Pydantic v2 BaseModel classes"
+      - "Use `@app.exception_handler` for standardised error responses (RFC 7807)"
+      - "Configure Redis rate limiting: `slowapi` or `fastapi-limiter` with token-bucket"
+      - "Use `async with AsyncSession() as db:` for all database operations"
+      - "Add `response_description` and `summary` to all `@router.get/post` decorators"
+    memory:
+      - "Pydantic v2: use model_validator(mode='after') instead of @validator"
+      - "FastAPI dependency injection: prefer Depends() over global state"
+      - "Async SQLAlchemy 2.0: use `select()` builder, not legacy ORM query API"
+    scripts:
+      - "pytest tests/ --cov=src --cov-fail-under=85 -q"
+  benchmarks:
+    pass_rate: 0.93
+    type_coverage: 1.0
+    openapi_schema_completeness: 0.97
